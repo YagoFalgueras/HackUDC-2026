@@ -2,7 +2,7 @@
 
 ## Visión General
 
-Ejecutar el motor de DOOM en una plataforma ARM de grado espacial (satélite LEO), transmitiendo vídeo comprimido por H.264 vía downlink satelital y recibiendo input del jugador por uplink, todo con ancho de banda extremadamente limitado y latencia espacial real.
+Ejecutar el motor de DOOM en una plataforma ARM AARch64 de grado espacial (satélite LEO), transmitiendo vídeo comprimido por H.264 vía downlink satelital y recibiendo input del jugador por uplink, todo con ancho de banda extremadamente limitado y latencia espacial real.
 
 ---
 
@@ -261,29 +261,29 @@ Jugador presiona tecla
 
 ## Parámetros Clave
 
-| Parámetro | Valor | Justificación |
-|---|---|---|
-| Resolución | 176×144 (QCIF) | Mínima resolución estándar, reduce bitrate drásticamente |
-| Game tick rate | 35 Hz | Rate nativo de DOOM, inamovible |
-| Encoder FPS | 20 FPS | Suficiente para jugabilidad, reduce carga ~43% vs 35 FPS |
-| Codec | H.264 Baseline | Sin B-frames, mínima latencia, amplio soporte |
-| Preset x264 | ultrafast | Mínimo uso de CPU a costa de eficiencia de compresión |
-| Tune x264 | zerolatency | Desactiva lookahead y buffers internos |
-| Bitrate objetivo | 128–256 kbps | Viable para enlace satelital |
-| Transporte | RTP sobre UDP | Sin retransmisiones (TCP sería letal con esta latencia) |
-| RTT objetivo | 30–40 ms (LEO) | ~550 km órbita, 2×propagación + procesamiento |
+| Parámetro        | Valor          | Justificación                                            |
+| ---------------- | -------------- | -------------------------------------------------------- |
+| Resolución       | 176×144 (QCIF) | Mínima resolución estándar, reduce bitrate drásticamente |
+| Game tick rate   | 35 Hz          | Rate nativo de DOOM, inamovible                          |
+| Encoder FPS      | 20 FPS         | Suficiente para jugabilidad, reduce carga ~43% vs 35 FPS |
+| Codec            | H.264 Baseline | Sin B-frames, mínima latencia, amplio soporte            |
+| Preset x264      | ultrafast      | Mínimo uso de CPU a costa de eficiencia de compresión    |
+| Tune x264        | zerolatency    | Desactiva lookahead y buffers internos                   |
+| Bitrate objetivo | 128–256 kbps   | Viable para enlace satelital                             |
+| Transporte       | RTP sobre UDP  | Sin retransmisiones (TCP sería letal con esta latencia)  |
+| RTT objetivo     | 30–40 ms (LEO) | ~550 km órbita, 2×propagación + procesamiento            |
 
 ---
 
 ## Dependencias Externas
 
-| Librería | Uso | Lado |
-|---|---|---|
-| **doomgeneric** | Motor DOOM portable en C | Satélite |
-| **libx264** | Codificación H.264 por software | Satélite |
-| **libavcodec / libswscale (FFmpeg)** | Decodificación H.264 + conversión color | Tierra |
-| **SDL2** | Ventana, rendering, input de teclado | Tierra |
-| **pthreads** | Multithreading POSIX (2 hilos) | Satélite |
+| Librería                             | Uso                                     | Lado     |
+| ------------------------------------ | --------------------------------------- | -------- |
+| **doomgeneric**                      | Motor DOOM portable en C                | Satélite |
+| **libx264**                          | Codificación H.264 por software         | Satélite |
+| **libavcodec / libswscale (FFmpeg)** | Decodificación H.264 + conversión color | Tierra   |
+| **SDL2**                             | Ventana, rendering, input de teclado    | Tierra   |
+| **pthreads**                         | Multithreading POSIX (2 hilos)          | Satélite |
 
 ---
 

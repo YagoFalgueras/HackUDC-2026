@@ -40,7 +40,7 @@
 #include "v_video.h"
 #include "w_wad.h"
 #include "z_zone.h"
-#include "../../downlink.h"
+#include "../../ringbuffer.h"
 
 // These are (1) the window (or the full screen) that our game is rendered to
 // and (2) the renderer that scales the texture (see below) into this window.
@@ -278,7 +278,8 @@ void I_ShutdownGraphics(void)
         SDL_DestroyWindow(screen);
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
 
-        downlink_shutdown();
+        // Shutdown ring buffer
+        ringbuffer_shutdown();
         initialized = false;
     }
 }
@@ -778,8 +779,8 @@ void I_FinishUpdate (void)
         }
     }
 
-    // Send framebuffer over UDP via downlink
-    downlink_send_raw_frame(I_VideoBuffer, SCREENWIDTH * SCREENHEIGHT);
+    // Write framebuffer to ring buffer for encoder thread
+    ringbuffer_write_frame(I_VideoBuffer, SCREENWIDTH, SCREENHEIGHT);
 
     // Restore background and undo the disk indicator, if it was drawn.
     V_RestoreDiskBackground();
@@ -1467,7 +1468,9 @@ void I_InitGraphics(void)
     while (SDL_PollEvent(&dummy));
 
     initialized = true;
-    downlink_init("127.0.0.1", 9666);
+
+    // Initialize ring buffer for frame transmission
+    ringbuffer_init();
 
     // Call I_ShutdownGraphics on quit
 
