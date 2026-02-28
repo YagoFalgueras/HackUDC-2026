@@ -197,6 +197,8 @@ int downlink_send_nals(uint8_t **nals, size_t *nal_sizes, int num_nals, uint32_t
                 fprintf(stderr, "[DOWNLINK ERROR] sendto() failed: %s\n", strerror(errno));
                 return -1;
             }
+            // Incrementar contador de bytes enviados (incluye header RTP + payload)
+            atomic_fetch_add(&g_bytes_sent, (uint64_t)sent);
 
             rtp_seq_number++;
             total_packets++;
@@ -254,6 +256,9 @@ int downlink_send_nals(uint8_t **nals, size_t *nal_sizes, int num_nals, uint32_t
                            frag_index + 1, (remaining + max_frag_payload - 1) / max_frag_payload,
                            i, frag_size);
                 }
+
+                // Actualizar contador de bytes enviados
+                atomic_fetch_add(&g_bytes_sent, (uint64_t)sent);
 
                 nal_payload += frag_size;
                 remaining -= frag_size;
