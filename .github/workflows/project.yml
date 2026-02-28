@@ -1,0 +1,58 @@
+name: Project CI
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths-ignore:
+      - "**.md"
+  push:
+    branches:
+      - "main"
+    paths-ignore:
+      - "**.md"
+
+jobs:
+  lint:
+    name: cppcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install cppcheck
+        run: sudo apt-get update && sudo apt-get install cppcheck
+
+      - name: Run cppcheck on satellite and ground
+        run: |
+          cppcheck --error-exitcode=1 -j2 --std=c11 \
+            -I satellite -I ground -I common/include \
+            satellite/*.c ground/*.c
+
+  build:
+    name: Build (Linux GCC)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install \
+            libsdl2-dev \
+            libsdl2-mixer-dev \
+            libsdl2-net-dev \
+            libpng-dev \
+            libsamplerate0-dev \
+            libfluidsynth-dev \
+            libx264-dev \
+            libavcodec-dev \
+            libavutil-dev \
+            libswscale-dev
+
+      - name: Build doom (required for satellite linking)
+        working-directory: satellite/doom
+        run: ./autogen.sh && make -j4
+
+      - name: Build satellite and ground
+        run: make -j4
