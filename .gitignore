@@ -66,4 +66,3 @@ GTAGS
 /.cache/clangd
 compile_commands.json
 
-ground_main
