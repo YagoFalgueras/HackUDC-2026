@@ -23,6 +23,7 @@
 #include <pthread.h>
  #include <time.h>
  #include <stdint.h>
+ #include <stdlib.h>
 
 /* Keycodes internos de DOOM (de doomkeys.h) */
 #define DK_UPARROW    0xad
@@ -55,6 +56,55 @@ static uint16_t        g_prev_bitfield = 0;
 static uint16_t        g_last_enqueued_key = 0;
 static bool            g_last_enqueued_pressed = false;
 static uint64_t        g_last_enqueued_ms = 0;
+/* Automatically send a key release after this many ms for single presses */
+#define UPLINK_AUTO_RELEASE_MS 150
+
+/* Forward declarations used by the release thread (defined below) */
+static void enqueue_key_event(uint16_t key, bool pressed);
+static const char *dk_name(uint16_t k);
+
+struct release_job {
+    uint16_t key;
+    uint32_t delay_ms;
+};
+
+static void *release_thread_fn(void *arg)
+{
+    struct release_job *job = (struct release_job *)arg;
+    struct timespec ts;
+
+    if (!job)
+        return NULL;
+
+    ts.tv_sec = job->delay_ms / 1000;
+    ts.tv_nsec = (job->delay_ms % 1000) * 1000000UL;
+
+    nanosleep(&ts, NULL);
+
+    /* Enqueue the key release */
+    fprintf(stderr, "[SAT RX] ev_keyup    key=0x%02x (%s)\n", job->key, dk_name(job->key));
+    enqueue_key_event(job->key, false);
+
+    free(job);
+    return NULL;
+}
+
+static void schedule_key_release(uint16_t key, uint32_t delay_ms)
+{
+    pthread_t th;
+    struct release_job *job = malloc(sizeof(*job));
+    if (!job)
+        return;
+    job->key = key;
+    job->delay_ms = delay_ms;
+
+    if (pthread_create(&th, NULL, release_thread_fn, job) != 0)
+    {
+        free(job);
+        return;
+    }
+    pthread_detach(th);
+}
 
 /* ------------------------------------------------------------------ */
 /* Helper: encolar un evento de tecla (thread-safe)                    */
@@ -143,6 +193,8 @@ static void process_bit(uint16_t cur, uint16_t prev, uint16_t mask,
                 doom_key, dk_name(doom_key));
         /* Encolar solo keydown (ejecutar acción una vez). */
         enqueue_key_event(doom_key, true);
+        /* Programar un "key release" automático tras un breve intervalo */
+        schedule_key_release(doom_key, UPLINK_AUTO_RELEASE_MS);
     }
     /* Ignore released events coming from ground station: do nothing */
 }
@@ -164,6 +216,7 @@ static void process_weapon(uint16_t cur, uint16_t prev)
     {
         fprintf(stderr, "[SAT RX] ev_keydown  WEAPON %u\n", cur_w);
         enqueue_key_event((uint16_t)('0' + cur_w), true);
+        schedule_key_release((uint16_t)('0' + cur_w), UPLINK_AUTO_RELEASE_MS);
     }
 }
 
