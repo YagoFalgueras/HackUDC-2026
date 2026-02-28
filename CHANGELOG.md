@@ -36,6 +36,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `display_shutdown()` — destroys texture, renderer and window, then calls
     `SDL_Quit()`.
 
+- `common/include/protocol.h`: define the input packet format shared between
+  ground station and satellite:
+  - `input_packet_t` — 8-byte struct (bitfield 16 b + timestamp 32 b +
+    seq_number 16 b) serialised in big-endian order.
+  - Bitfield macros `INPUT_BIT_FORWARD/BACKWARD/LEFT/RIGHT/FIRE/USE/SLEFT/SRIGHT`
+    and `INPUT_WEAPON_SHIFT` (bits 8-10) for weapon selection.
+  - `pack_input(pkt, buf)` — inline serialiser that writes the struct to a
+    raw 8-byte buffer ready for `sendto(2)`.
+  - `get_timestamp_ms()` — inline helper that returns a monotonic millisecond
+    timestamp via `clock_gettime(CLOCK_MONOTONIC)`.
+
+- `ground/input.c`: implement the input-capture / uplink-transmitter module:
+  - `input_init(satellite_ip, satellite_port)` — creates a UDP socket and
+    configures the destination address (satellite uplink endpoint); initialises
+    the key-state bitfield and sequence counter to zero.
+  - `input_poll()` — drains the SDL2 event queue each frame; maps keyboard
+    events (arrows, Ctrl, Space, Shift, keys 1-7, ESC) to the internal
+    bitfield; when the bitfield changes, serialises an `input_packet_t` with
+    `pack_input()` and transmits it via `sendto(2)`; returns 1 on
+    SDL_QUIT / ESC, 0 otherwise.
+  - `input_shutdown()` — closes the UDP socket.
+
 ### Changed
 
 - `ground/main.c`: replace monolithic implementation with thin orchestration
