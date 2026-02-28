@@ -35,7 +35,6 @@ static int udp_socket = -1;
 static struct sockaddr_in udp_dest;
 static uint16_t rtp_seq_number = 0;
 static uint32_t rtp_ssrc = 0x12345678;  // Source identifier (puede ser random)
-static uint32_t rtp_timestamp = 0;      // Timestamp incremental por frame
 
 // Contador de bytes transmitidos (thread-safe)
 static _Atomic uint64_t g_bytes_sent = 0;
@@ -90,80 +89,6 @@ int downlink_init(const char *dest_ip, uint16_t dest_port)
     return 0;
 }
 
-int downlink_send_raw_frame(const void *buffer, size_t size)
-{
-    if (udp_socket < 0)
-    {
-        if (downlink_init(DEFAULT_DEST_IP, DEFAULT_DEST_PORT) < 0)
-            return -1;
-    }
-
-    if (size == 0)
-        return 0;
-
-    const uint8_t *data = (const uint8_t *)buffer;
-    size_t bytes_remaining = size;
-    size_t bytes_sent_total = 0;
-    int num_fragments = 0;
-
-    // Incrementar timestamp para este frame
-    rtp_timestamp++;
-
-    // Fragmentar y enviar
-    while (bytes_remaining > 0)
-    {
-        // Calcular tamaño del payload para este fragmento
-        size_t payload_size = (bytes_remaining > MAX_PAYLOAD_SIZE)
-                              ? MAX_PAYLOAD_SIZE
-                              : bytes_remaining;
-
-        // Determinar si es el último fragmento
-        uint8_t is_last = (payload_size == bytes_remaining) ? 1 : 0;
-
-        // Construir paquete RTP: header (12 bytes) + payload
-        uint8_t packet[RTP_HEADER_SIZE + MAX_PAYLOAD_SIZE];
-
-        // Empaquetar header RTP
-        pack_rtp_header(packet, rtp_seq_number, rtp_timestamp, is_last);
-
-        // Copiar payload
-        memcpy(packet + RTP_HEADER_SIZE, data, payload_size);
-
-        size_t packet_size = RTP_HEADER_SIZE + payload_size;
-
-        // Enviar paquete
-        ssize_t sent = sendto(udp_socket, packet, packet_size, 0,
-                             (struct sockaddr *)&udp_dest, sizeof(udp_dest));
-
-        if (sent < 0)
-        {
-            fprintf(stderr, "[SATELLITE ERROR] sendto() failed on fragment %d: %s\n",
-                    num_fragments, strerror(errno));
-            return -1;
-        }
-
-        if ((size_t)sent != packet_size)
-        {
-            fprintf(stderr, "[SATELLITE WARNING] Partial send: %zd/%zu bytes on fragment %d\n",
-                    sent, packet_size, num_fragments);
-        }
-
-        // Incrementar contador de bytes enviados (incluye header RTP + payload)
-        atomic_fetch_add(&g_bytes_sent, (uint64_t)sent);
-
-        // Avanzar punteros
-        data += payload_size;
-        bytes_remaining -= payload_size;
-        bytes_sent_total += payload_size;
-        num_fragments++;
-        rtp_seq_number++;
-    }
-
-    printf("[SATELLITE] Sent frame: %zu bytes in %d RTP fragments (timestamp=%u)\n",
-           bytes_sent_total, num_fragments, rtp_timestamp);
-
-    return (int)bytes_sent_total;
-}
 
 int downlink_send_nals(uint8_t **nals, size_t *nal_sizes, int num_nals, uint32_t timestamp)
 {

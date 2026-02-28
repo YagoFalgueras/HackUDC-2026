@@ -44,19 +44,6 @@ int downlink_init(const char *dest_ip, uint16_t dest_port);
 int downlink_send_nals(uint8_t **nals, size_t *nal_sizes, int num_nals, uint32_t timestamp);
 
 /**
- * downlink_send_raw_frame - Transmite un frame raw por UDP
- * @buffer: Puntero al buffer de píxeles (índices de paleta 8bpp)
- * @size: Tamaño en bytes del buffer (SCREENWIDTH * SCREENHEIGHT)
- *
- * Envía el framebuffer completo en un único datagrama UDP.
- * Si el socket no está inicializado, llama a downlink_init internamente
- * con los parámetros por defecto.
- *
- * Returns: número de bytes enviados, o -1 en error
- */
-int downlink_send_raw_frame(const void *buffer, size_t size);
-
-/**
  * downlink_shutdown - Finaliza el transmisor y libera recursos
  *
  * Cierra el socket UDP y libera cualquier recurso asociado.
