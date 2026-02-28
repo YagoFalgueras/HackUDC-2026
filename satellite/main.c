@@ -194,11 +194,11 @@ void* encoder_thread_func(void* arg) {
     // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
     // TEMPORAL: Saltarse inicialización de encoder para enviar frames raw
-    // if (encoder_init() != 0) {
-    //     fprintf(stderr, "[ENCODER THREAD] Error: Fallo al inicializar encoder\n");
-    //     g_running = 0;
-    //     return NULL;
-    // }
+    if (encoder_init() != 0) {
+        fprintf(stderr, "[ENCODER THREAD] Error: Fallo al inicializar encoder\n");
+        g_running = 0;
+        return NULL;
+    }
     printf("[ENCODER THREAD] Modo RAW activo (sin encoding H.264)\n");
 
     // Configuración de timing para 20 FPS
@@ -226,10 +226,35 @@ void* encoder_thread_func(void* arg) {
             // TEMPORAL: Enviar frame raw directamente sin encoding H.264
             // =========================================================================
             // El buffer contiene grayscale de 176x144 bytes del ringbuffer
-            // size_t frame_size = FRAME_WIDTH * FRAME_HEIGHT;
-            // int bytes_sent = downlink_send_raw_frame(frame_buffer, frame_size);
+            // // size_t frame_size = FRAME_WIDTH * FRAME_HEIGHT;
+            // // int bytes_sent = downlink_send_raw_frame(frame_buffer, frame_size);
 
-            // if (bytes_sent > 0) {
+            // // if (bytes_sent > 0) {
+            //     frames_encoded++;
+
+                // Log periódico cada 5 segundos (100 frames @ 20 FPS)
+                if (frames_encoded % 100 == 0) {
+                    printf("[ENCODER THREAD] Frames encoded: %u, dropped: %u\n",
+                           frames_encoded, frames_dropped);
+                }
+            } else {
+                fprintf(stderr, "[ENCODER THREAD] Error al enviar frame raw %u\n", frame_num);
+            }
+
+            // =========================================================================
+            // CÓDIGO ORIGINAL CON ENCODING H.264 (comentado temporalmente):
+            // =========================================================================
+            // Encodear frame RGB → H.264 NAL units
+            encoder_output_t output;
+            int num_nals = encoder_encode_frame(frame_buffer, &output);
+
+            if (num_nals > 0) {
+                // Transmitir los NAL units por downlink
+                // El timestamp RTP se calcula en unidades de 90 kHz (estándar H.264)
+                // frame_num * (90000 / 20) = frame_num * 4500 ticks por frame @ 20 FPS
+                uint32_t rtp_timestamp = frame_num * 4500;
+
+                downlink_send_nals(output.nals, output.nal_sizes, output.num_nals, rtp_timestamp);
             //     frames_encoded++;
 
             //     // Log periódico cada 5 segundos (100 frames @ 20 FPS)
@@ -247,16 +272,16 @@ void* encoder_thread_func(void* arg) {
             // Encodear frame RGB → H.264 NAL units
             encoder_output_t output;
             int num_nals = encoder_encode_frame(frame_buffer, &output);
-            
+
             if (num_nals > 0) {
                 // Transmitir los NAL units por downlink
                 // El timestamp RTP se calcula en unidades de 90 kHz (estándar H.264)
                 // frame_num * (90000 / 20) = frame_num * 4500 ticks por frame @ 20 FPS
                 uint32_t rtp_timestamp = frame_num * 4500;
-            
+
                 downlink_send_nals(output.nals, output.nal_sizes, output.num_nals, rtp_timestamp);
                 frames_encoded++;
-            
+
                 // Log periódico cada 5 segundos (100 frames @ 20 FPS)
                 if (frames_encoded % 100 == 0) {
                     printf("[ENCODER THREAD] Frames encoded: %u, dropped: %u\n",
@@ -282,7 +307,7 @@ void* encoder_thread_func(void* arg) {
            frames_encoded, frames_dropped);
 
     // TEMPORAL: Saltarse cleanup del encoder ya que no se inicializó
-    // encoder_shutdown();
+    encoder_shutdown();
 
     printf("[ENCODER THREAD] Terminado\n");
     return NULL;

@@ -167,12 +167,104 @@ int downlink_send_raw_frame(const void *buffer, size_t size)
 
 int downlink_send_nals(uint8_t **nals, size_t *nal_sizes, int num_nals, uint32_t timestamp)
 {
-    (void)nals;
-    (void)nal_sizes;
-    (void)num_nals;
-    (void)timestamp;
-    /* TODO: implementar empaquetado RTP/H.264 */
-    return -1;
+    if (udp_socket < 0 || !nals || !nal_sizes || num_nals <= 0)
+        return -1;
+
+    int total_packets = 0;
+    uint8_t packet[RTP_HEADER_SIZE + MAX_PAYLOAD_SIZE];
+
+    for (int i = 0; i < num_nals; i++)
+    {
+        uint8_t *nal = nals[i];
+        size_t nal_size = nal_sizes[i];
+
+        if (nal_size == 0)
+            continue;
+
+        int is_last_nal = (i == num_nals - 1);
+
+        if (nal_size <= MAX_PAYLOAD_SIZE)
+        {
+            // Single NAL unit packet: RTP header + NAL completo
+            uint8_t marker = is_last_nal ? 1 : 0;
+            pack_rtp_header(packet, rtp_seq_number, timestamp, marker);
+            memcpy(packet + RTP_HEADER_SIZE, nal, nal_size);
+
+            ssize_t sent = sendto(udp_socket, packet, RTP_HEADER_SIZE + nal_size, 0,
+                                  (struct sockaddr *)&udp_dest, sizeof(udp_dest));
+            if (sent < 0)
+            {
+                fprintf(stderr, "[DOWNLINK ERROR] sendto() failed: %s\n", strerror(errno));
+                return -1;
+            }
+
+            rtp_seq_number++;
+            total_packets++;
+        }
+        else
+        {
+            // Fragmentación FU-A
+            // FU indicator (1 byte): F | NRI del NAL original | Type=28 (FU-A)
+            // FU header   (1 byte): S | E | R | Type del NAL original
+            uint8_t nal_header = nal[0];
+            uint8_t fu_indicator = (nal_header & 0xE0) | 28;  // NRI + FU-A type
+            uint8_t nal_type = nal_header & 0x1F;
+
+            // Payload del NAL sin el primer byte (ya codificado en FU indicator/header)
+            uint8_t *nal_payload = nal + 1;
+            size_t remaining = nal_size - 1;
+            size_t max_frag_payload = MAX_PAYLOAD_SIZE - 2;  // -2 para FU indicator + FU header
+            int frag_index = 0;
+
+            while (remaining > 0)
+            {
+                size_t frag_size = (remaining > max_frag_payload)
+                                   ? max_frag_payload : remaining;
+                int is_first = (frag_index == 0);
+                int is_last_frag = (frag_size == remaining);
+
+                // Marker bit solo en el último fragmento del último NAL
+                uint8_t marker = (is_last_nal && is_last_frag) ? 1 : 0;
+                pack_rtp_header(packet, rtp_seq_number, timestamp, marker);
+
+                // FU indicator
+                packet[RTP_HEADER_SIZE] = fu_indicator;
+
+                // FU header: S(1) | E(1) | R(1) | Type(5)
+                packet[RTP_HEADER_SIZE + 1] = nal_type;
+                if (is_first)
+                    packet[RTP_HEADER_SIZE + 1] |= 0x80;  // S bit
+                if (is_last_frag)
+                    packet[RTP_HEADER_SIZE + 1] |= 0x40;  // E bit
+
+                // Payload del fragmento
+                memcpy(packet + RTP_HEADER_SIZE + 2, nal_payload, frag_size);
+
+                size_t pkt_size = RTP_HEADER_SIZE + 2 + frag_size;
+                ssize_t sent = sendto(udp_socket, packet, pkt_size, 0,
+                                      (struct sockaddr *)&udp_dest, sizeof(udp_dest));
+                if (sent < 0)
+                {
+                    fprintf(stderr, "[DOWNLINK ERROR] sendto() FU-A frag %d failed: %s\n",
+                            frag_index, strerror(errno));
+                    return -1;
+                } else
+                {
+                    printf("[DOWNLINK] Sent FU-A fragment %d/%zu for NAL %d (size=%zu bytes)\n",
+                           frag_index + 1, (remaining + max_frag_payload - 1) / max_frag_payload,
+                           i, frag_size);
+                }
+
+                nal_payload += frag_size;
+                remaining -= frag_size;
+                rtp_seq_number++;
+                total_packets++;
+                frag_index++;
+            }
+        }
+    }
+
+    return total_packets;
 }
 
 void downlink_shutdown(void)
