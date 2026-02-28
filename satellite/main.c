@@ -184,7 +184,8 @@ void* doom_thread_func() {
  * - Avanza read_index de forma circular
  */
 
-void* encoder_thread_func(void* arg) {
+void* encoder_thread_func(void *arg) {
+    (void)arg;
     printf("[ENCODER THREAD] Iniciando en core 1...\n");
 
     // TODO: Establecer afinidad de CPU (core 1)
@@ -394,7 +395,7 @@ int main(int argc, char** argv) {
  * 3. COMPILACIÓN LOCAL:
  *    gcc -o satellite_main main.c encoder.c downlink.c uplink.c \
  *        doom/doomgeneric.c doom/doomgeneric_satellite.c \
- *        doom/doom/*.c doom/dummy.c \
+ *        doom/doom/.c doom/dummy.c \
  *        -lpthread -lx264 -I./doom -I./ -DFEATURE_SOUND=0
  *
  * 4. INTEGRACIÓN CON RING BUFFER (doomgeneric_satellite.c):

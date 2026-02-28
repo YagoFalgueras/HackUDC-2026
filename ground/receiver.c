@@ -53,7 +53,7 @@ static uint8_t *h264_buf = NULL;
 static int      h264_len = 0;
 
 /* FFmpeg decoder state */
-static AVCodec *av_codec = NULL;
+static const AVCodec *av_codec = NULL;
 static AVCodecContext *av_ctx = NULL;
 static AVFrame *av_frame = NULL;
 static AVPacket *av_pkt = NULL;
