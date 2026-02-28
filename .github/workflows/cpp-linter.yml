@@ -7,7 +7,7 @@ on:
     types: [opened, reopened, synchronize]
   push:
     branches:
-      - master
+      - main
 
 jobs:
   cpp-linter:
@@ -18,9 +18,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install libfluidsynth-dev libpng-dev libsamplerate0-dev libsdl2-dev libsdl2-mixer-dev libsdl2-net-dev ninja-build
-      - name: Run cmake to generate compilation database
-        run: cmake -S . -B . -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=1
+        run: sudo apt-get update && sudo apt-get install libfluidsynth-dev libpng-dev libsamplerate0-dev libsdl2-dev libsdl2-mixer-dev libsdl2-net-dev bear
+      - name: Generate compilation database
+        working-directory: satellite/doom
+        run: ./autogen.sh && bear -- make -j4
       - uses: cpp-linter/cpp-linter-action@v2
         id: linter
         env:
@@ -28,7 +29,8 @@ jobs:
         with:
           style: file
           lines-changed-only: true
-          version: 16
+          version: 15
+          database: satellite/doom
           tidy-checks: >-
             boost-*
             ,bugprone-*
@@ -50,5 +52,6 @@ jobs:
           echo "Some files failed the linting checks! Fail fast disabled until false positive issue is fixed"
 
       - name: Check no extern used in .c files
+        working-directory: satellite/doom
         run: |
           ./check-extern.sh

@@ -3,14 +3,14 @@ name: Continuous Integration
 on:
   push:
     branches:
-      - "master"
+      - "main"
     tags:
       - "*"
     paths-ignore:
       - "**.md"
   pull_request:
     branches:
-      - "master"
+      - "main"
     paths-ignore:
       - "**.md"
   workflow_dispatch:
@@ -48,8 +48,8 @@ jobs:
             msystem: ucrt64
             msys-env: mingw-w64-ucrt-x86_64
             artifacts: true
-            pkg-path: pkg/win32/*.zip
-            pkg-dir: pkg/win32
+            pkg-path: satellite/doom/pkg/win32/*.zip
+            pkg-dir: satellite/doom/pkg/win32
 
     steps:
       - name: Install pandoc
@@ -107,10 +107,12 @@ jobs:
       - name: Configure
         env:
           CC: ${{ matrix.config.compiler }}
+        working-directory: satellite/doom
         run: |
           ./autogen.sh
 
       - name: Build
+        working-directory: satellite/doom
         run: make -j4
 
       - uses: actions/setup-python@v5
@@ -120,8 +122,8 @@ jobs:
       - name: Test
         run: |
           pip install pyyaml
-          PREFIX=`sed -n '/PROGRAM_PREFIX/p' ${PWD}/config.h | cut -d '"' -f 2`
-          make -j4 -C quickcheck check SOURCE_PORT=$PWD/src/${PREFIX}doom
+          PREFIX=`sed -n '/PROGRAM_PREFIX/p' satellite/doom/config.h | cut -d '"' -f 2`
+          make -j4 -C quickcheck check SOURCE_PORT=$PWD/satellite/doom/src/${PREFIX}doom
 
       - name: Package
         if: ${{ matrix.config.artifacts }}
@@ -139,7 +141,7 @@ jobs:
       - name: Extract Package String
         if: ${{ contains(github.ref, 'tags') }}
         run: |
-          PACKAGE_STRING=`sed -n '/PACKAGE_STRING/p' ${PWD}/config.h | cut -d '"' -f 2`
+          PACKAGE_STRING=`sed -n '/PACKAGE_STRING/p' satellite/doom/config.h | cut -d '"' -f 2`
           echo "PACKAGE_STRING=${PACKAGE_STRING}" >> $GITHUB_ENV
 
       - name: Release
