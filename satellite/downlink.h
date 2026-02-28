@@ -63,4 +63,11 @@ int downlink_send_raw_frame(const void *buffer, size_t size);
  */
 void downlink_shutdown(void);
 
+/**
+ * downlink_get_bytes_sent - Obtiene el total de bytes transmitidos
+ *
+ * Returns: Total de bytes enviados por downlink desde el inicio
+ */
+uint64_t downlink_get_bytes_sent(void);
+
 #endif /* DOWNLINK_H */

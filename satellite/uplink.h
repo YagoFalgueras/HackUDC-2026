@@ -77,4 +77,11 @@ int uplink_pop_key(uint16_t *key, bool *pressed);
  */
 void uplink_shutdown(void);
 
+/**
+ * uplink_get_bytes_received - Obtiene el total de bytes recibidos
+ *
+ * Returns: Total de bytes recibidos por uplink desde el inicio
+ */
+uint64_t uplink_get_bytes_received(void);
+
 #endif /* UPLINK_H */

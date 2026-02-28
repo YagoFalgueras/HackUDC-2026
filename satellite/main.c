@@ -58,6 +58,7 @@
 static volatile sig_atomic_t g_running = 1;
 static pthread_t g_doom_thread;
 static pthread_t g_encoder_thread;
+static struct timespec g_start_time;
 
 /**
  * PASO 3: HANDLER DE SEÑALES
@@ -67,6 +68,32 @@ static pthread_t g_encoder_thread;
 
 void signal_handler(int signum) {
     printf("\n[SATELLITE] Señal %d recibida, iniciando apagado...\n", signum);
+
+    // Calcular tiempo transcurrido
+    struct timespec end_time;
+    clock_gettime(CLOCK_MONOTONIC, &end_time);
+    double elapsed_sec = (end_time.tv_sec - g_start_time.tv_sec) +
+                         (end_time.tv_nsec - g_start_time.tv_nsec) / 1e9;
+
+    // Obtener contadores de bytes
+    uint64_t bytes_tx = downlink_get_bytes_sent();
+    uint64_t bytes_rx = uplink_get_bytes_received();
+
+    // Calcular ancho de banda en kbps
+    double downlink_kbps = (elapsed_sec > 0) ? (bytes_tx * 8.0) / (elapsed_sec * 1000.0) : 0.0;
+    double uplink_kbps = (elapsed_sec > 0) ? (bytes_rx * 8.0) / (elapsed_sec * 1000.0) : 0.0;
+
+    // Reporte de estadísticas
+    printf("\n=== REPORTE DE ANCHO DE BANDA (SATELLITE) ===\n");
+    printf("Tiempo total: %.2f segundos\n", elapsed_sec);
+    printf("DOWNLINK (video TX):\n");
+    printf("  - Bytes transmitidos: %lu\n", (unsigned long)bytes_tx);
+    printf("  - Ancho de banda: %.2f kbps\n", downlink_kbps);
+    printf("UPLINK (input RX):\n");
+    printf("  - Bytes recibidos: %lu\n", (unsigned long)bytes_rx);
+    printf("  - Ancho de banda: %.2f kbps\n", uplink_kbps);
+    printf("==============================================\n\n");
+
     g_running = 0;
 }
 
@@ -305,7 +332,8 @@ int main(int argc, char** argv) {
         printf("[MAIN] Ejemplo: %s 192.168.1.100 5000 5001\n", argv[0]);
     }
 
-    // PASO 6.1 - Configurar señales para apagado limpio
+    // PASO 6.1 - Configurar señales para apagado limpio y capturar tiempo de inicio
+    clock_gettime(CLOCK_MONOTONIC, &g_start_time);
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 

@@ -1,6 +1,8 @@
 #ifndef INPUT_H
 #define INPUT_H
 
+#include <stdint.h>
+
 /**
  * Inicializa el subsistema de captura de input y transmisión uplink.
  *
@@ -57,5 +59,13 @@ int input_poll(void);
  * Debe ser llamada antes de display_shutdown().
  */
 void input_shutdown(void);
+
+/**
+ * Obtiene el total de bytes transmitidos por uplink.
+ *
+ * Retorna:
+ *   Total de bytes enviados desde el inicio
+ */
+uint64_t input_get_bytes_sent(void);
 
 #endif // INPUT_H

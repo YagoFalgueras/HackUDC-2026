@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdatomic.h>
 
 #include <SDL2/SDL.h>
 
@@ -40,6 +41,9 @@ static uint16_t          g_seq           = 0;
 
 #define INPUT_SEND_INTERVAL_MS 50   /* 20 Hz = cada 50 ms */
 static uint32_t          g_last_send_ms = 0;
+
+/* Contador de bytes transmitidos (thread-safe) */
+static _Atomic uint64_t g_bytes_sent = 0;
 
 static const char *bit_name(uint16_t bit)
 {
@@ -188,8 +192,14 @@ int input_poll(void)
 
             pack_input(&pkt, buf);
 
-            sendto(g_sock, (const char *)buf, sizeof(buf), 0,
+            ssize_t sent = sendto(g_sock, (const char *)buf, sizeof(buf), 0,
                    (const struct sockaddr *)&g_dest, (socklen_t)sizeof(g_dest));
+
+            /* Incrementar contador de bytes enviados */
+            if (sent > 0)
+            {
+                atomic_fetch_add(&g_bytes_sent, (uint64_t)sent);
+            }
 
             g_seq++;
             g_last_send_ms = now;
@@ -206,4 +216,9 @@ void input_shutdown(void)
         CLOSE_SOCK(g_sock);
         g_sock = -1;
     }
+}
+
+uint64_t input_get_bytes_sent(void)
+{
+    return atomic_load(&g_bytes_sent);
 }

@@ -6,6 +6,7 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdatomic.h>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -46,6 +47,9 @@ static uint32_t reassembly_ts  = 0;   /* timestamp del frame en construcción */
 
 /* Buffer de salida RGB */
 static uint8_t *rgb_buffer = NULL;
+
+/* Contador de bytes recibidos (thread-safe) */
+static _Atomic uint64_t g_bytes_received = 0;
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -179,6 +183,9 @@ const uint8_t *receiver_poll(void)
             break;
         }
 
+        /* Incrementar contador de bytes recibidos */
+        atomic_fetch_add(&g_bytes_received, (uint64_t)bytes);
+
         printf("UDP packet received: %zd bytes\n", bytes);
 
         /* Parsear header RTP */
@@ -249,4 +256,9 @@ void receiver_shutdown(void)
 
     reassembly_len = 0;
     reassembly_ts  = 0;
+}
+
+uint64_t receiver_get_bytes_received(void)
+{
+    return atomic_load(&g_bytes_received);
 }

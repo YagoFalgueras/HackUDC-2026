@@ -69,4 +69,12 @@ const uint8_t* receiver_poll(void);
  */
 void receiver_shutdown(void);
 
+/**
+ * Obtiene el total de bytes recibidos por downlink.
+ *
+ * Retorna:
+ *   Total de bytes recibidos desde el inicio
+ */
+uint64_t receiver_get_bytes_received(void);
+
 #endif // RECEIVER_H

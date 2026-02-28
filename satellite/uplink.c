@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <stdatomic.h>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -55,6 +56,9 @@ static uint16_t        g_prev_bitfield = 0;
 static uint16_t        g_last_enqueued_key = 0;
 static bool            g_last_enqueued_pressed = false;
 static uint64_t        g_last_enqueued_ms = 0;
+
+/* Contador de bytes recibidos (thread-safe) */
+static _Atomic uint64_t g_bytes_received = 0;
 
 /* ------------------------------------------------------------------ */
 /* Helper: encolar un evento de tecla (thread-safe)                    */
@@ -246,6 +250,9 @@ int uplink_poll(void)
         if (n != 8)
             continue;    /* Paquete malformado, ignorar */
 
+        /* Incrementar contador de bytes recibidos */
+        atomic_fetch_add(&g_bytes_received, (uint64_t)n);
+
         unpack_input(buf, &pkt);
 
         /* Teclas de movimiento y acción */
@@ -300,4 +307,9 @@ void uplink_shutdown(void)
         g_sock = -1;
     }
     pthread_mutex_destroy(&g_queue_mutex);
+}
+
+uint64_t uplink_get_bytes_received(void)
+{
+    return atomic_load(&g_bytes_received);
 }

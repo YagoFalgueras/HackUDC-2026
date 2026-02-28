@@ -5,6 +5,7 @@
 #include <string.h>
 #include <errno.h>
 #include <stdint.h>
+#include <stdatomic.h>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -35,6 +36,9 @@ static struct sockaddr_in udp_dest;
 static uint16_t rtp_seq_number = 0;
 static uint32_t rtp_ssrc = 0x12345678;  // Source identifier (puede ser random)
 static uint32_t rtp_timestamp = 0;      // Timestamp incremental por frame
+
+// Contador de bytes transmitidos (thread-safe)
+static _Atomic uint64_t g_bytes_sent = 0;
 
 /**
  * pack_rtp_header - Construye un header RTP de 12 bytes
@@ -144,6 +148,9 @@ int downlink_send_raw_frame(const void *buffer, size_t size)
                     sent, packet_size, num_fragments);
         }
 
+        // Incrementar contador de bytes enviados (incluye header RTP + payload)
+        atomic_fetch_add(&g_bytes_sent, (uint64_t)sent);
+
         // Avanzar punteros
         data += payload_size;
         bytes_remaining -= payload_size;
@@ -179,4 +186,9 @@ void downlink_shutdown(void)
 #endif
         udp_socket = -1;
     }
+}
+
+uint64_t downlink_get_bytes_sent(void)
+{
+    return atomic_load(&g_bytes_sent);
 }
