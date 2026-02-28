@@ -26,12 +26,19 @@ typedef struct {
 static encoder_ctx_t ctx = {0};
 
 /**
- * Conversión grayscale (8-bit indexed) -> YUV420p
+ * Conversión RGB888 -> YUV420p usando fórmulas estándar BT.601
  *
- * Para escala de grises, simplemente copiamos los valores de luminancia Y
- * y establecemos U/V constantes a 128 (gris neutro en espacio de color YUV)
+ * Full range (0-255):
+ *   Y  =  0.299*R + 0.587*G + 0.114*B
+ *   U  = -0.169*R - 0.331*G + 0.500*B + 128
+ *   V  =  0.500*R - 0.419*G - 0.081*B + 128
+ *
+ * Para evitar aritmética flotante, usamos enteros con factor de escala 256:
+ *   Y = (77*R + 150*G + 29*B) >> 8
+ *   U = ((-43*R - 85*G + 128*B) >> 8) + 128
+ *   V = ((128*R - 107*G - 21*B) >> 8) + 128
  */
-static void grayscale_to_yuv420p(const uint8_t *grayscale, x264_picture_t *pic, int width, int height) {
+static void rgb_to_yuv420p(const uint8_t *rgb, x264_picture_t *pic, int width, int height) {
     uint8_t *y_plane = pic->img.plane[0];
     uint8_t *u_plane = pic->img.plane[1];
     uint8_t *v_plane = pic->img.plane[2];
@@ -39,23 +46,55 @@ static void grayscale_to_yuv420p(const uint8_t *grayscale, x264_picture_t *pic, 
     int y_stride = pic->img.i_stride[0];
     int uv_stride = pic->img.i_stride[1];
 
-    // Copiar valores de luminancia Y directamente (grayscale ya es luminancia)
+    // Conversión RGB → Y (full range)
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            int idx = y * width + x;
-            y_plane[y * y_stride + x] = grayscale[idx];
+            int rgb_idx = (y * width + x) * 3;
+            uint8_t r = rgb[rgb_idx + 0];
+            uint8_t g = rgb[rgb_idx + 1];
+            uint8_t b = rgb[rgb_idx + 2];
+
+            // Y = 0.299*R + 0.587*G + 0.114*B
+            int Y = (77 * r + 150 * g + 29 * b) >> 8;
+            y_plane[y * y_stride + x] = (uint8_t)Y;
         }
     }
 
-    // Para escala de grises: U y V constantes = 128 (gris neutro)
+    // Conversión RGB → UV (subsampling 4:2:0)
     // En YUV420p, cada 4 píxeles (2×2) comparten los mismos valores U y V
     int uv_width = (width + 1) / 2;
     int uv_height = (height + 1) / 2;
 
     for (int y = 0; y < uv_height; y++) {
         for (int x = 0; x < uv_width; x++) {
-            u_plane[y * uv_stride + x] = 128;  // Neutral chroma
-            v_plane[y * uv_stride + x] = 128;  // Neutral chroma
+            // Promediar bloque 2×2 de píxeles RGB para calcular UV
+            int x0 = x * 2;
+            int y0 = y * 2;
+            int x1 = (x0 + 1 < width) ? x0 + 1 : x0;
+            int y1 = (y0 + 1 < height) ? y0 + 1 : y0;
+
+            // Leer 4 píxeles del bloque 2×2
+            int idx00 = (y0 * width + x0) * 3;
+            int idx01 = (y0 * width + x1) * 3;
+            int idx10 = (y1 * width + x0) * 3;
+            int idx11 = (y1 * width + x1) * 3;
+
+            // Promediar los valores RGB de los 4 píxeles
+            int r = (rgb[idx00 + 0] + rgb[idx01 + 0] + rgb[idx10 + 0] + rgb[idx11 + 0]) / 4;
+            int g = (rgb[idx00 + 1] + rgb[idx01 + 1] + rgb[idx10 + 1] + rgb[idx11 + 1]) / 4;
+            int b = (rgb[idx00 + 2] + rgb[idx01 + 2] + rgb[idx10 + 2] + rgb[idx11 + 2]) / 4;
+
+            // U = -0.169*R - 0.331*G + 0.500*B + 128
+            int U = ((-43 * r - 85 * g + 128 * b) >> 8) + 128;
+            // V = 0.500*R - 0.419*G - 0.081*B + 128
+            int V = ((128 * r - 107 * g - 21 * b) >> 8) + 128;
+
+            // Clamp a [0, 255]
+            U = (U < 0) ? 0 : (U > 255) ? 255 : U;
+            V = (V < 0) ? 0 : (V > 255) ? 255 : V;
+
+            u_plane[y * uv_stride + x] = (uint8_t)U;
+            v_plane[y * uv_stride + x] = (uint8_t)V;
         }
     }
 }
@@ -145,14 +184,14 @@ int encoder_init(void) {
     return 0;
 }
 
-int encoder_encode_frame(const uint8_t *grayscale_data, encoder_output_t *output) {
-    if (!ctx.encoder || !grayscale_data || !output) {
+int encoder_encode_frame(const uint8_t *rgb_data, encoder_output_t *output) {
+    if (!ctx.encoder || !rgb_data || !output) {
         fprintf(stderr, "Error: Invalid encoder state or parameters\n");
         return -1;
     }
 
-    // Convertir grayscale (8-bit indexed) -> YUV420p
-    grayscale_to_yuv420p(grayscale_data, &ctx.pic_in, FRAME_WIDTH, FRAME_HEIGHT);
+    // Convertir RGB888 -> YUV420p usando BT.601 full range
+    rgb_to_yuv420p(rgb_data, &ctx.pic_in, FRAME_WIDTH, FRAME_HEIGHT);
 
     // Configurar el PTS (Presentation Time Stamp)
     // Se incrementa automáticamente basado en el número de frames

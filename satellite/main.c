@@ -212,8 +212,8 @@ void* encoder_thread_func(void* arg) {
 
     printf("[ENCODER THREAD] Loop principal iniciado (20 FPS)\n");
 
-    // Buffer temporal para frame grayscale (8-bit indexed)
-    uint8_t frame_buffer[FRAME_WIDTH * FRAME_HEIGHT];
+    // Buffer temporal para frame RGB888 (3 bytes por pixel)
+    uint8_t frame_buffer[FRAME_WIDTH * FRAME_HEIGHT * 3];
     uint32_t frame_num;
 
     // Loop principal de encoding y transmisión
@@ -222,54 +222,7 @@ void* encoder_thread_func(void* arg) {
         if (ringbuffer_read_frame(frame_buffer, &frame_num)) {
             printf("[ENCODER THREAD] Recogido frame #%u del ring buffer\n", frame_num);
 
-            // =========================================================================
-            // TEMPORAL: Enviar frame raw directamente sin encoding H.264
-            // =========================================================================
-            // El buffer contiene grayscale de 176x144 bytes del ringbuffer
-            // // size_t frame_size = FRAME_WIDTH * FRAME_HEIGHT;
-            // // int bytes_sent = downlink_send_raw_frame(frame_buffer, frame_size);
-
-            // // if (bytes_sent > 0) {
-            //     frames_encoded++;
-
-                // Log periódico cada 5 segundos (100 frames @ 20 FPS)
-                if (frames_encoded % 100 == 0) {
-                    printf("[ENCODER THREAD] Frames encoded: %u, dropped: %u\n",
-                           frames_encoded, frames_dropped);
-                }
-            } else {
-                fprintf(stderr, "[ENCODER THREAD] Error al enviar frame raw %u\n", frame_num);
-            }
-
-            // =========================================================================
-            // CÓDIGO ORIGINAL CON ENCODING H.264 (comentado temporalmente):
-            // =========================================================================
-            // Encodear frame RGB → H.264 NAL units
-            encoder_output_t output;
-            int num_nals = encoder_encode_frame(frame_buffer, &output);
-
-            if (num_nals > 0) {
-                // Transmitir los NAL units por downlink
-                // El timestamp RTP se calcula en unidades de 90 kHz (estándar H.264)
-                // frame_num * (90000 / 20) = frame_num * 4500 ticks por frame @ 20 FPS
-                uint32_t rtp_timestamp = frame_num * 4500;
-
-                downlink_send_nals(output.nals, output.nal_sizes, output.num_nals, rtp_timestamp);
-            //     frames_encoded++;
-
-            //     // Log periódico cada 5 segundos (100 frames @ 20 FPS)
-            //     if (frames_encoded % 100 == 0) {
-            //         printf("[ENCODER THREAD] Frames raw sent: %u, dropped: %u\n",
-            //                frames_encoded, frames_dropped);
-            //     }
-            // } else {
-            //     fprintf(stderr, "[ENCODER THREAD] Error al enviar frame raw %u\n", frame_num);
-            // }
-
-            // =========================================================================
-            // CÓDIGO ORIGINAL CON ENCODING H.264 (comentado temporalmente):
-            // =========================================================================
-            // Encodear frame RGB → H.264 NAL units
+            // Encodear frame RGB888 → H.264 NAL units
             encoder_output_t output;
             int num_nals = encoder_encode_frame(frame_buffer, &output);
 
@@ -291,6 +244,10 @@ void* encoder_thread_func(void* arg) {
                 fprintf(stderr, "[ENCODER THREAD] Error al encodear frame %u\n", frame_num);
             }
             // num_nals == 0 significa delayed frame, no es error
+        } else {
+            // No hay frame disponible, incrementar contador de frames dropped
+            // (Esto es normal ya que DOOM corre a 35 Hz pero encoder a 20 FPS)
+            frames_dropped++;
         }
 
         // Dormir hasta el siguiente frame (timing preciso a 20 FPS)

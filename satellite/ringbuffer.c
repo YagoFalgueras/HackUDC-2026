@@ -27,7 +27,7 @@
 #define RING_BUFFER_SIZE 3
 
 typedef struct {
-    uint8_t frame_data[FRAME_WIDTH * FRAME_HEIGHT]; // Grayscale 8-bit indexed
+    uint8_t frame_data[FRAME_WIDTH * FRAME_HEIGHT * 3]; // RGB888 (3 bytes per pixel)
     atomic_int status; // 0=EMPTY, 1=WRITING, 2=READY, 3=READING
     uint32_t frame_number;
 } RingBufferSlot;
@@ -89,9 +89,9 @@ void ringbuffer_update_palette(const uint8_t palette_data[256][3]) {
 /**
  * Write a DOOM frame to the ring buffer
  *
- * Downsamples 320x200 8-bit indexed framebuffer to 176x144 grayscale (8-bit)
+ * Downsamples 320x200 8-bit indexed framebuffer to 176x144 RGB888
  * and writes it to the next available ring buffer slot.
- * Palette conversion is deferred to ground station for bandwidth optimization.
+ * Performs indexed→RGB conversion using the current palette.
  *
  * @param pixels Pointer to DOOM's paletted framebuffer (8-bit indexed)
  * @param width Frame width (should be 320)
@@ -118,7 +118,7 @@ bool ringbuffer_write_frame(const uint8_t *pixels, int width, int height) {
     }
 
     // Status is now WRITING (1)
-    // Downsample 8-bit indexed 320x200 → 176x144 (keep as grayscale indexed)
+    // Downsample 320x200 8-bit indexed → 176x144 RGB888
 
     uint8_t *dest = g_ring_buffer[slot].frame_data;
 
@@ -132,9 +132,14 @@ bool ringbuffer_write_frame(const uint8_t *pixels, int width, int height) {
             int src_y = (int)(y * scale_y);
             int src_idx = src_y * width + src_x;
 
-            // Copy palette index directly (no RGB conversion)
-            int dest_idx = y * FRAME_WIDTH + x;
-            dest[dest_idx] = pixels[src_idx];
+            // Get palette index from source
+            uint8_t palette_idx = pixels[src_idx];
+
+            // Convert indexed → RGB888 using current palette
+            int dest_idx = (y * FRAME_WIDTH + x) * 3;
+            dest[dest_idx + 0] = g_palette_rgb[palette_idx][0]; // R
+            dest[dest_idx + 1] = g_palette_rgb[palette_idx][1]; // G
+            dest[dest_idx + 2] = g_palette_rgb[palette_idx][2]; // B
         }
     }
 
@@ -147,7 +152,7 @@ bool ringbuffer_write_frame(const uint8_t *pixels, int width, int height) {
     // Advance write index (circular)
     atomic_store(&g_write_index, (slot + 1) % RING_BUFFER_SIZE);
 
-    printf("[RINGBUFFER] Frame #%u written to slot %d (READY)\n", g_ring_buffer[slot].frame_number, slot);
+    printf("[RINGBUFFER] Frame #%u written to slot %d (READY, RGB888)\n", g_ring_buffer[slot].frame_number, slot);
 
     return true;
 }
@@ -158,7 +163,7 @@ bool ringbuffer_write_frame(const uint8_t *pixels, int width, int height) {
  * This is an internal function that will be used by the encoder thread.
  * It's not exposed in ringbuffer.h since only the encoder should call it.
  *
- * @param frame_data Output buffer for grayscale 8-bit indexed data
+ * @param frame_data Output buffer for RGB888 data (FRAME_WIDTH × FRAME_HEIGHT × 3 bytes)
  * @param frame_number Output for frame sequence number
  * @return true if frame read, false if no frame available
  */
@@ -173,9 +178,9 @@ bool ringbuffer_read_frame(uint8_t *frame_data, uint32_t *frame_number) {
     }
 
     // Status is now READING (3)
-    // Copy frame data (grayscale 8-bit indexed)
+    // Copy frame data (RGB888)
     memcpy(frame_data, g_ring_buffer[slot].frame_data,
-           FRAME_WIDTH * FRAME_HEIGHT);
+           FRAME_WIDTH * FRAME_HEIGHT * 3);
     *frame_number = g_ring_buffer[slot].frame_number;
 
     // Mark as EMPTY (0)

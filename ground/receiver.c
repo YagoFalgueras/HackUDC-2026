@@ -1,5 +1,4 @@
 #include "receiver.h"
-#include "doom_palette.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,15 +51,12 @@ static uint8_t *rgb_buffer = NULL;
 static uint8_t *h264_buf = NULL;
 static int      h264_len = 0;
 
-/* Buffer temporal para plano Y escalado (cuando resolución no coincide) */
-static uint8_t *gray_buf = NULL;
-
 /* FFmpeg decoder state */
 static AVCodec *av_codec = NULL;
 static AVCodecContext *av_ctx = NULL;
 static AVFrame *av_frame = NULL;
 static AVPacket *av_pkt = NULL;
-static struct SwsContext *sws_ctx = NULL;
+static struct SwsContext *sws_ctx = NULL;  // Para conversión YUV420p → RGB888
 
 /* Contador de bytes recibidos (thread-safe) */
 static _Atomic uint64_t g_bytes_received = 0;
@@ -101,66 +97,49 @@ static int unpack_rtp_header(const uint8_t *buf, int len, rtp_header_t *hdr)
 }
 
 /**
- * Aplica doom_palette sobre el frame indexado y escribe en rgb_buffer.
- * Convierte datos de 8-bit indexed (1 byte/pixel) a RGB888 (3 bytes/pixel).
- * El plano Y del H.264 decodificado contiene los índices de paleta originales.
+ * Convierte el frame YUV420p decodificado a RGB888.
+ * Usa libswscale para la conversión de espacio de color.
  */
-static void apply_palette(const uint8_t *indexed, int len)
+static int decode_frame_to_rgb(void)
 {
-    for (int i = 0; i < len; i++)
-    {
-        uint8_t idx = indexed[i];
-        rgb_buffer[i * 3 + 0] = doom_palette[idx][0];
-        rgb_buffer[i * 3 + 1] = doom_palette[idx][1];
-        rgb_buffer[i * 3 + 2] = doom_palette[idx][2];
-    }
-}
-
-/**
- * Extrae el plano Y del frame decodificado y aplica la paleta DOOM.
- * Si la resolución coincide con SCREEN_WIDTH×SCREEN_HEIGHT, usa el plano Y
- * directamente. Si no, escala a GRAY8 primero.
- */
-static int decode_frame_apply_palette(void)
-{
-    if (av_frame->width == SCREEN_WIDTH && av_frame->height == SCREEN_HEIGHT)
-    {
-        /* Plano Y directo: cada valor Y ≈ índice de paleta DOOM */
-        const uint8_t *y_plane = av_frame->data[0];
-        int y_stride = av_frame->linesize[0];
-
-        if (y_stride == SCREEN_WIDTH) {
-            /* Sin padding, copiar directamente */
-            apply_palette(y_plane, FRAME_BYTES);
-        } else {
-            /* Con padding en cada línea, copiar fila a fila al buffer temporal */
-            for (int row = 0; row < SCREEN_HEIGHT; row++)
-                memcpy(gray_buf + row * SCREEN_WIDTH,
-                       y_plane + row * y_stride, SCREEN_WIDTH);
-            apply_palette(gray_buf, FRAME_BYTES);
-        }
-        return 1;
-    }
-
-    /* Resolución diferente: escalar plano Y a SCREEN_WIDTH×SCREEN_HEIGHT */
+    // Configurar sws_ctx para YUV420p → RGB888 si no existe
     if (!sws_ctx) {
-        sws_ctx = sws_getContext(av_frame->width, av_frame->height,
-                                 AV_PIX_FMT_GRAY8,
-                                 SCREEN_WIDTH, SCREEN_HEIGHT,
-                                 AV_PIX_FMT_GRAY8,
-                                 SWS_BILINEAR, NULL, NULL, NULL);
-    }
-    if (sws_ctx) {
-        uint8_t *dest[4] = { gray_buf, NULL, NULL, NULL };
-        int dest_linesize[4] = { SCREEN_WIDTH, 0, 0, 0 };
-        sws_scale(sws_ctx, (const uint8_t * const*)av_frame->data,
-                  av_frame->linesize, 0, av_frame->height,
-                  dest, dest_linesize);
-        apply_palette(gray_buf, FRAME_BYTES);
-        return 1;
+        sws_ctx = sws_getContext(
+            av_frame->width, av_frame->height, AV_PIX_FMT_YUV420P,
+            SCREEN_WIDTH, SCREEN_HEIGHT, AV_PIX_FMT_RGB24,
+            SWS_BILINEAR, NULL, NULL, NULL
+        );
+        if (!sws_ctx) {
+            fprintf(stderr, "receiver: Failed to create sws_ctx for YUV→RGB\n");
+            return 0;
+        }
     }
 
-    return 0;
+    // Si la resolución del frame decodificado cambió, recrear sws_ctx
+    if (sws_ctx && (av_frame->width != SCREEN_WIDTH || av_frame->height != SCREEN_HEIGHT)) {
+        sws_freeContext(sws_ctx);
+        sws_ctx = sws_getContext(
+            av_frame->width, av_frame->height, AV_PIX_FMT_YUV420P,
+            SCREEN_WIDTH, SCREEN_HEIGHT, AV_PIX_FMT_RGB24,
+            SWS_BILINEAR, NULL, NULL, NULL
+        );
+        if (!sws_ctx) {
+            fprintf(stderr, "receiver: Failed to recreate sws_ctx for YUV→RGB\n");
+            return 0;
+        }
+    }
+
+    // Convertir YUV420p → RGB888
+    uint8_t *dest[4] = { rgb_buffer, NULL, NULL, NULL };
+    int dest_linesize[4] = { SCREEN_WIDTH * 3, 0, 0, 0 };
+
+    sws_scale(sws_ctx,
+              (const uint8_t * const*)av_frame->data,
+              av_frame->linesize,
+              0, av_frame->height,
+              dest, dest_linesize);
+
+    return 1;
 }
 
 /* ------------------------------------------------------------------ */
@@ -208,8 +187,7 @@ int receiver_init(int listen_port)
     /* Buffers */
     rgb_buffer = malloc(RGB_BUF_SIZE);
     h264_buf   = malloc(200000); /* ample for NAL assembly */
-    gray_buf   = malloc(FRAME_BYTES); /* buffer temporal para plano Y */
-    if (!rgb_buffer || !h264_buf || !gray_buf)
+    if (!rgb_buffer || !h264_buf)
     {
         fprintf(stderr, "receiver_init: malloc falló\n");
         receiver_shutdown();
@@ -243,7 +221,7 @@ int receiver_init(int listen_port)
     av_pkt = av_packet_alloc();
 
     fprintf(stderr, "receiver_init: escuchando en puerto %d  "
-            "(%dx%d H.264 + paleta DOOM, %d pixels por frame)\n",
+            "(%dx%d H.264 → RGB888, %d pixels por frame)\n",
             listen_port, SCREEN_WIDTH, SCREEN_HEIGHT, FRAME_BYTES);
     return 0;
 }
@@ -298,7 +276,7 @@ const uint8_t *receiver_poll(void)
                 av_pkt->size = payload_len;
                 if (avcodec_send_packet(av_ctx, av_pkt) == 0) {
                     while (avcodec_receive_frame(av_ctx, av_frame) == 0) {
-                        if (decode_frame_apply_palette())
+                        if (decode_frame_to_rgb())
                             got_frame = 1;
                     }
                 }
@@ -338,7 +316,7 @@ const uint8_t *receiver_poll(void)
                         av_pkt->size = h264_len;
                         if (avcodec_send_packet(av_ctx, av_pkt) == 0) {
                             while (avcodec_receive_frame(av_ctx, av_frame) == 0) {
-                                if (decode_frame_apply_palette())
+                                if (decode_frame_to_rgb())
                                     got_frame = 1;
                             }
                         }
@@ -357,7 +335,7 @@ const uint8_t *receiver_poll(void)
                     av_pkt->size = payload_len + 4;
                     if (avcodec_send_packet(av_ctx, av_pkt) == 0) {
                         while (avcodec_receive_frame(av_ctx, av_frame) == 0) {
-                            if (decode_frame_apply_palette())
+                            if (decode_frame_to_rgb())
                                 got_frame = 1;
                         }
                     }
@@ -383,11 +361,6 @@ void receiver_shutdown(void)
     if (h264_buf) {
         free(h264_buf);
         h264_buf = NULL;
-    }
-
-    if (gray_buf) {
-        free(gray_buf);
-        gray_buf = NULL;
     }
 
     /* Free FFmpeg resources if allocated */
