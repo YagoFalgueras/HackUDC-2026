@@ -1,6 +1,5 @@
 CMDLINE
 INSTALL
-Makefile
 Makefile.in
 TAGS
 aclocal.m4
