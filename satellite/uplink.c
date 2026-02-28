@@ -33,6 +33,8 @@
 #define DK_PERIOD     '.'
 #define DK_RSHIFT     (0x80 + 0x36)
 #define DK_RALT       (0x80 + 0x38)
+#define DK_ENTER      13
+#define DK_ESCAPE     27
 
 /* ------------------------------------------------------------------ */
 /* Estado interno                                                       */
@@ -76,6 +78,26 @@ static void enqueue_key_event(uint16_t key, bool pressed)
 /* Helper: traducir un bit del bitfield a keycode DOOM y encolarlo     */
 /* ------------------------------------------------------------------ */
 
+static const char *dk_name(uint16_t k)
+{
+    switch (k)
+    {
+        case DK_UPARROW:    return "UPARROW";
+        case DK_DOWNARROW:  return "DOWNARROW";
+        case DK_LEFTARROW:  return "LEFTARROW";
+        case DK_RIGHTARROW: return "RIGHTARROW";
+        case DK_RCTRL:      return "FIRE(CTRL)";
+        case DK_SPACE:      return "USE(SPACE)";
+        case DK_COMMA:      return "SLEFT(,)";
+        case DK_PERIOD:     return "SRIGHT(.)";
+        case DK_RSHIFT:     return "RUN(SHIFT)";
+        case DK_RALT:       return "STRAFE(ALT)";
+        case DK_ENTER:      return "ENTER";
+        case DK_ESCAPE:     return "ESCAPE";
+        default:            return "?";
+    }
+}
+
 static void process_bit(uint16_t cur, uint16_t prev, uint16_t mask,
                         uint16_t doom_key)
 {
@@ -83,9 +105,17 @@ static void process_bit(uint16_t cur, uint16_t prev, uint16_t mask,
     int prev_set = (prev & mask) != 0;
 
     if (cur_set && !prev_set)
+    {
+        fprintf(stderr, "[SAT RX] ev_keydown  key=0x%02x (%s)\n",
+                doom_key, dk_name(doom_key));
         enqueue_key_event(doom_key, true);
+    }
     else if (!cur_set && prev_set)
+    {
+        fprintf(stderr, "[SAT RX] ev_keyup    key=0x%02x (%s)\n",
+                doom_key, dk_name(doom_key));
         enqueue_key_event(doom_key, false);
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -100,13 +130,16 @@ static void process_weapon(uint16_t cur, uint16_t prev)
     if (cur_w == prev_w)
         return;
 
-    /* Soltar arma anterior */
     if (prev_w > 0)
+    {
+        fprintf(stderr, "[SAT RX] ev_keyup    WEAPON %u\n", prev_w);
         enqueue_key_event((uint16_t)('0' + prev_w), false);
-
-    /* Pulsar arma nueva */
+    }
     if (cur_w > 0)
+    {
+        fprintf(stderr, "[SAT RX] ev_keydown  WEAPON %u\n", cur_w);
         enqueue_key_event((uint16_t)('0' + cur_w), true);
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -193,6 +226,8 @@ int uplink_poll(void)
         process_bit(pkt.bitfield, g_prev_bitfield, INPUT_BIT_SRIGHT, DK_PERIOD);
         process_bit(pkt.bitfield, g_prev_bitfield, INPUT_BIT_RUN,    DK_RSHIFT);
         process_bit(pkt.bitfield, g_prev_bitfield, INPUT_BIT_STRAFE, DK_RALT);
+        process_bit(pkt.bitfield, g_prev_bitfield, INPUT_BIT_ENTER,  DK_ENTER);
+        process_bit(pkt.bitfield, g_prev_bitfield, INPUT_BIT_ESCAPE, DK_ESCAPE);
 
         /* Selección de arma (bits 10-12) */
         process_weapon(pkt.bitfield, g_prev_bitfield);

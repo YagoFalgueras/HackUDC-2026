@@ -41,6 +41,7 @@
 #include "w_wad.h"
 #include "z_zone.h"
 #include "../../downlink.h"
+#include "../../uplink.h"
 
 // These are (1) the window (or the full screen) that our game is rendered to
 // and (2) the renderer that scales the texture (see below) into this window.
@@ -279,6 +280,7 @@ void I_ShutdownGraphics(void)
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
 
         downlink_shutdown();
+        uplink_shutdown();
         initialized = false;
     }
 }
@@ -429,12 +431,12 @@ void I_GetEvent(void)
                 if (ToggleFullScreenKeyShortcut(&sdlevent.key.keysym))
                 {
                     I_ToggleFullScreen();
-                    break;
                 }
-                // deliberate fall-though
+                /* Input comes from UDP uplink — ignore native keyboard */
+                break;
 
             case SDL_KEYUP:
-		I_HandleKeyboardEvent(&sdlevent);
+                /* Input comes from UDP uplink — ignore native keyboard */
                 break;
 
             case SDL_MOUSEBUTTONDOWN:
@@ -468,6 +470,24 @@ void I_GetEvent(void)
 
             default:
                 break;
+        }
+    }
+
+    /* Procesar input recibido por UDP desde la estación terrestre */
+    {
+        uint16_t ukey;
+        boolean  upressed;
+        event_t  uev;
+
+        uplink_poll();
+
+        while (uplink_pop_key(&ukey, (bool *)&upressed))
+        {
+            uev.type  = upressed ? ev_keydown : ev_keyup;
+            uev.data1 = (int)ukey;
+            uev.data2 = upressed ? (int)ukey : 0;
+            uev.data3 = 0;
+            D_PostEvent(&uev);
         }
     }
 }
@@ -1468,6 +1488,7 @@ void I_InitGraphics(void)
 
     initialized = true;
     downlink_init("127.0.0.1", 9666);
+    uplink_init(9667);
 
     // Call I_ShutdownGraphics on quit
 
