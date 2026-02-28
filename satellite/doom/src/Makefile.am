@@ -121,7 +121,9 @@ w_file_posix.c                             \
 w_file_win32.c                             \
 w_merge.c            w_merge.h             \
 $(top_builddir)/win32/win_opendir.c        \
-$(top_builddir)/win32/win_opendir.h
+$(top_builddir)/win32/win_opendir.h        \
+$(top_srcdir)/../downlink.c                \
+$(top_srcdir)/../downlink.h
 
 
 MEMORY_NATIVE_SOURCE_FILES=\

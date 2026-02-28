@@ -20,21 +20,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef _WIN32
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#pragma comment(lib, "ws2_32.lib")
-#else
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#endif
-
 #include "SDL.h"
 #include "SDL_opengl.h"
 
@@ -55,6 +40,7 @@
 #include "v_video.h"
 #include "w_wad.h"
 #include "z_zone.h"
+#include "../../downlink.h"
 
 // These are (1) the window (or the full screen) that our game is rendered to
 // and (2) the renderer that scales the texture (see below) into this window.
@@ -84,31 +70,6 @@ static SDL_Rect blit_rect = {
     SCREENWIDTH,
     SCREENHEIGHT
 };
-
-// UDP framebuffer streaming
-#define UDP_DEST_IP   "127.0.0.1"  // TODO: set destination IP
-#define UDP_DEST_PORT 9666         // TODO: set destination port
-
-static int udp_socket = -1;
-static struct sockaddr_in udp_dest;
-
-static void InitUDPSocket(void)
-{
-    udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
-    if (udp_socket < 0)
-    {
-        fprintf(stderr, "InitUDPSocket: failed to create socket\n");
-        return;
-    }
-
-    memset(&udp_dest, 0, sizeof(udp_dest));
-    udp_dest.sin_family = AF_INET;
-    udp_dest.sin_port = htons(UDP_DEST_PORT);
-    inet_pton(AF_INET, UDP_DEST_IP, &udp_dest.sin_addr);
-
-    fprintf(stderr, "InitUDPSocket: streaming to %s:%d\n",
-            UDP_DEST_IP, UDP_DEST_PORT);
-}
 
 // palette
 
@@ -317,6 +278,7 @@ void I_ShutdownGraphics(void)
         SDL_DestroyWindow(screen);
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
 
+        downlink_shutdown();
         initialized = false;
     }
 }
@@ -816,18 +778,8 @@ void I_FinishUpdate (void)
         }
     }
 
-    // Send framebuffer over UDP instead of rendering to screen.
-
-    if (udp_socket < 0)
-    {
-        InitUDPSocket();
-    }
-
-    if (udp_socket >= 0)
-    {
-        sendto(udp_socket, I_VideoBuffer, SCREENWIDTH * SCREENHEIGHT, 0,
-               (struct sockaddr *)&udp_dest, sizeof(udp_dest));
-    }
+    // Send framebuffer over UDP via downlink
+    downlink_send_raw_frame(I_VideoBuffer, SCREENWIDTH * SCREENHEIGHT);
 
     // Restore background and undo the disk indicator, if it was drawn.
     V_RestoreDiskBackground();
@@ -1515,6 +1467,7 @@ void I_InitGraphics(void)
     while (SDL_PollEvent(&dummy));
 
     initialized = true;
+    downlink_init("127.0.0.1", 9666);
 
     // Call I_ShutdownGraphics on quit
 
