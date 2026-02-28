@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "encoder.h"
 #include "../common/include/protocol.h"
 #include <x264.h>

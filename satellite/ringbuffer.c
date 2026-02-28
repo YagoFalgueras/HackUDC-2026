@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 /**
  * @file ringbuffer.c
  * @brief Lock-free ring buffer implementation for DOOM frame transmission

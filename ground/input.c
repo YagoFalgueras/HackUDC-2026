@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 /*
  * input.c — Captura de teclado SDL2 y transmisión por UDP (uplink)
  *
