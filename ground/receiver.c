@@ -22,7 +22,7 @@
 
 #define SCREEN_WIDTH   176
 #define SCREEN_HEIGHT  144
-#define FRAME_BYTES    (SCREEN_WIDTH * SCREEN_HEIGHT)       /* Grayscale: 176*144 = 25344 bytes */
+#define FRAME_BYTES    (SCREEN_WIDTH * SCREEN_HEIGHT)       /* 176*144 = 25344 pixels */
 #define RGB_BUF_SIZE   (SCREEN_WIDTH * SCREEN_HEIGHT * 3)   /* RGB output: 176*144*3 = 75888 bytes */
 
 #define UDP_BUF_SIZE   25344
@@ -45,17 +45,15 @@ typedef struct {
 
 static int udp_fd = -1;
 
-/* Buffer de reensamblaje: acumula fragmentos hasta completar un frame */
-static uint8_t *reassembly_buf = NULL;
-static int      reassembly_len = 0;
-static uint32_t reassembly_ts  = 0;   /* timestamp del frame en construcción */
-
 /* Buffer de salida RGB */
 static uint8_t *rgb_buffer = NULL;
 
 /* H.264 reassembly buffer for FU-A fragments */
 static uint8_t *h264_buf = NULL;
 static int      h264_len = 0;
+
+/* Buffer temporal para plano Y escalado (cuando resolución no coincide) */
+static uint8_t *gray_buf = NULL;
 
 /* FFmpeg decoder state */
 static AVCodec *av_codec = NULL;
@@ -103,8 +101,9 @@ static int unpack_rtp_header(const uint8_t *buf, int len, rtp_header_t *hdr)
 }
 
 /**
- * Aplica doom_palette sobre el frame indexado (grayscale) y escribe en rgb_buffer.
+ * Aplica doom_palette sobre el frame indexado y escribe en rgb_buffer.
  * Convierte datos de 8-bit indexed (1 byte/pixel) a RGB888 (3 bytes/pixel).
+ * El plano Y del H.264 decodificado contiene los índices de paleta originales.
  */
 static void apply_palette(const uint8_t *indexed, int len)
 {
@@ -115,6 +114,53 @@ static void apply_palette(const uint8_t *indexed, int len)
         rgb_buffer[i * 3 + 1] = doom_palette[idx][1];
         rgb_buffer[i * 3 + 2] = doom_palette[idx][2];
     }
+}
+
+/**
+ * Extrae el plano Y del frame decodificado y aplica la paleta DOOM.
+ * Si la resolución coincide con SCREEN_WIDTH×SCREEN_HEIGHT, usa el plano Y
+ * directamente. Si no, escala a GRAY8 primero.
+ */
+static int decode_frame_apply_palette(void)
+{
+    if (av_frame->width == SCREEN_WIDTH && av_frame->height == SCREEN_HEIGHT)
+    {
+        /* Plano Y directo: cada valor Y ≈ índice de paleta DOOM */
+        const uint8_t *y_plane = av_frame->data[0];
+        int y_stride = av_frame->linesize[0];
+
+        if (y_stride == SCREEN_WIDTH) {
+            /* Sin padding, copiar directamente */
+            apply_palette(y_plane, FRAME_BYTES);
+        } else {
+            /* Con padding en cada línea, copiar fila a fila al buffer temporal */
+            for (int row = 0; row < SCREEN_HEIGHT; row++)
+                memcpy(gray_buf + row * SCREEN_WIDTH,
+                       y_plane + row * y_stride, SCREEN_WIDTH);
+            apply_palette(gray_buf, FRAME_BYTES);
+        }
+        return 1;
+    }
+
+    /* Resolución diferente: escalar plano Y a SCREEN_WIDTH×SCREEN_HEIGHT */
+    if (!sws_ctx) {
+        sws_ctx = sws_getContext(av_frame->width, av_frame->height,
+                                 AV_PIX_FMT_GRAY8,
+                                 SCREEN_WIDTH, SCREEN_HEIGHT,
+                                 AV_PIX_FMT_GRAY8,
+                                 SWS_BILINEAR, NULL, NULL, NULL);
+    }
+    if (sws_ctx) {
+        uint8_t *dest[4] = { gray_buf, NULL, NULL, NULL };
+        int dest_linesize[4] = { SCREEN_WIDTH, 0, 0, 0 };
+        sws_scale(sws_ctx, (const uint8_t * const*)av_frame->data,
+                  av_frame->linesize, 0, av_frame->height,
+                  dest, dest_linesize);
+        apply_palette(gray_buf, FRAME_BYTES);
+        return 1;
+    }
+
+    return 0;
 }
 
 /* ------------------------------------------------------------------ */
@@ -160,39 +206,44 @@ int receiver_init(int listen_port)
     }
 
     /* Buffers */
-    reassembly_buf = malloc(FRAME_BYTES);
-    rgb_buffer     = malloc(RGB_BUF_SIZE);
-    h264_buf       = malloc(200000); /* ample for NAL assembly */
-    if (!reassembly_buf || !rgb_buffer || !h264_buf)
+    rgb_buffer = malloc(RGB_BUF_SIZE);
+    h264_buf   = malloc(200000); /* ample for NAL assembly */
+    gray_buf   = malloc(FRAME_BYTES); /* buffer temporal para plano Y */
+    if (!rgb_buffer || !h264_buf || !gray_buf)
     {
         fprintf(stderr, "receiver_init: malloc falló\n");
         receiver_shutdown();
         return -1;
     }
-    reassembly_len = 0;
-    reassembly_ts  = 0;
 
     /* Inicializar FFmpeg decoder for H.264 */
     av_codec = avcodec_find_decoder(AV_CODEC_ID_H264);
     if (!av_codec) {
         fprintf(stderr, "receiver_init: avcodec_find_decoder failed\n");
-        /* No fatal: receiver seguirá funcionando en modo RAW */
-    } else {
-        av_ctx = avcodec_alloc_context3(av_codec);
-        if (!av_ctx) {
-            fprintf(stderr, "receiver_init: avcodec_alloc_context3 failed\n");
-        } else if (avcodec_open2(av_ctx, av_codec, NULL) < 0) {
-            fprintf(stderr, "receiver_init: avcodec_open2 failed\n");
-            avcodec_free_context(&av_ctx);
-            av_ctx = NULL;
-        } else {
-            av_frame = av_frame_alloc();
-            av_pkt = av_packet_alloc();
-        }
+        receiver_shutdown();
+        return -1;
     }
 
+    av_ctx = avcodec_alloc_context3(av_codec);
+    if (!av_ctx) {
+        fprintf(stderr, "receiver_init: avcodec_alloc_context3 failed\n");
+        receiver_shutdown();
+        return -1;
+    }
+
+    if (avcodec_open2(av_ctx, av_codec, NULL) < 0) {
+        fprintf(stderr, "receiver_init: avcodec_open2 failed\n");
+        avcodec_free_context(&av_ctx);
+        av_ctx = NULL;
+        receiver_shutdown();
+        return -1;
+    }
+
+    av_frame = av_frame_alloc();
+    av_pkt = av_packet_alloc();
+
     fprintf(stderr, "receiver_init: escuchando en puerto %d  "
-            "(%dx%d grayscale indexed, %d bytes por frame)\n",
+            "(%dx%d H.264 + paleta DOOM, %d pixels por frame)\n",
             listen_port, SCREEN_WIDTH, SCREEN_HEIGHT, FRAME_BYTES);
     return 0;
 }
@@ -235,52 +286,20 @@ const uint8_t *receiver_poll(void)
         if (payload_len <= 0)
             continue;
 
-        /* Si cambia el timestamp, empezar un frame nuevo */
-        if (rtp.timestamp != reassembly_ts)
-        {
-            reassembly_len = 0;
-            reassembly_ts  = rtp.timestamp;
-        }
-
-        /* Intentar detectar si el payload contiene H.264 NALs o datos RAW
-         * Detección básica:
-         * - FU-A (fragmentation) -> payload[0] & 0x1F == 28
-         * - Single NAL (1..23) -> payload[0] & 0x1F in [1,23]
-         * - AnnexB start code (0x00 00 00 01) -> treat as NAL stream
-         * Si no es H.264, se asume modo RAW grayscale y se reensambla como antes.
-         */
-
-        int handled_as_h264 = 0;
+        /* Decodificar payload H.264 */
 
         if (payload_len >= 4 && payload[0] == 0x00 && payload[1] == 0x00 &&
             payload[2] == 0x00 && payload[3] == 0x01)
         {
             /* AnnexB: send directly to decoder */
-            handled_as_h264 = 1;
-            if (av_ctx && av_pkt && av_frame) {
-                av_packet_unref(av_pkt);
-                if (av_new_packet(av_pkt, payload_len) == 0) {
-                    memcpy(av_pkt->data, payload, payload_len);
-                    av_pkt->size = payload_len;
-                    if (avcodec_send_packet(av_ctx, av_pkt) == 0) {
-                        while (avcodec_receive_frame(av_ctx, av_frame) == 0) {
-                            /* Crear sws_ctx si hace falta */
-                            if (!sws_ctx) {
-                                sws_ctx = sws_getContext(av_frame->width, av_frame->height,
-                                                         av_frame->format,
-                                                         SCREEN_WIDTH, SCREEN_HEIGHT,
-                                                         AV_PIX_FMT_RGB24,
-                                                         SWS_BILINEAR, NULL, NULL, NULL);
-                            }
-                            if (sws_ctx) {
-                                uint8_t *dest[4] = { rgb_buffer, NULL, NULL, NULL };
-                                int dest_linesize[4] = { SCREEN_WIDTH * 3, 0, 0, 0 };
-                                sws_scale(sws_ctx, (const uint8_t * const*)av_frame->data,
-                                          av_frame->linesize, 0, av_frame->height,
-                                          dest, dest_linesize);
-                                got_frame = 1;
-                            }
-                        }
+            av_packet_unref(av_pkt);
+            if (av_new_packet(av_pkt, payload_len) == 0) {
+                memcpy(av_pkt->data, payload, payload_len);
+                av_pkt->size = payload_len;
+                if (avcodec_send_packet(av_ctx, av_pkt) == 0) {
+                    while (avcodec_receive_frame(av_ctx, av_frame) == 0) {
+                        if (decode_frame_apply_palette())
+                            got_frame = 1;
                     }
                 }
             }
@@ -291,7 +310,6 @@ const uint8_t *receiver_poll(void)
             if (nal_type == 28 && payload_len >= 2)
             {
                 /* FU-A fragmentation */
-                handled_as_h264 = 1;
                 uint8_t fu_indicator = payload[0];
                 uint8_t fu_header = payload[1];
                 int S = (fu_header & 0x80) != 0;
@@ -314,29 +332,14 @@ const uint8_t *receiver_poll(void)
 
                 if (E) {
                     /* complete NAL unit in h264_buf, decode it */
-                    if (av_ctx && av_pkt && av_frame) {
-                        av_packet_unref(av_pkt);
-                        if (av_new_packet(av_pkt, h264_len) == 0) {
-                            memcpy(av_pkt->data, h264_buf, h264_len);
-                            av_pkt->size = h264_len;
-                            if (avcodec_send_packet(av_ctx, av_pkt) == 0) {
-                                while (avcodec_receive_frame(av_ctx, av_frame) == 0) {
-                                    if (!sws_ctx) {
-                                        sws_ctx = sws_getContext(av_frame->width, av_frame->height,
-                                                                 av_frame->format,
-                                                                 SCREEN_WIDTH, SCREEN_HEIGHT,
-                                                                 AV_PIX_FMT_RGB24,
-                                                                 SWS_BILINEAR, NULL, NULL, NULL);
-                                    }
-                                    if (sws_ctx) {
-                                        uint8_t *dest[4] = { rgb_buffer, NULL, NULL, NULL };
-                                        int dest_linesize[4] = { SCREEN_WIDTH * 3, 0, 0, 0 };
-                                        sws_scale(sws_ctx, (const uint8_t * const*)av_frame->data,
-                                                  av_frame->linesize, 0, av_frame->height,
-                                                  dest, dest_linesize);
-                                        got_frame = 1;
-                                    }
-                                }
+                    av_packet_unref(av_pkt);
+                    if (av_new_packet(av_pkt, h264_len) == 0) {
+                        memcpy(av_pkt->data, h264_buf, h264_len);
+                        av_pkt->size = h264_len;
+                        if (avcodec_send_packet(av_ctx, av_pkt) == 0) {
+                            while (avcodec_receive_frame(av_ctx, av_frame) == 0) {
+                                if (decode_frame_apply_palette())
+                                    got_frame = 1;
                             }
                         }
                     }
@@ -346,68 +349,19 @@ const uint8_t *receiver_poll(void)
             else if (nal_type >= 1 && nal_type <= 23)
             {
                 /* Single NAL unit (not fragmented) */
-                handled_as_h264 = 1;
-                if (av_ctx && av_pkt && av_frame) {
-                    av_packet_unref(av_pkt);
-                    /* prepend start code for safety */
-                    if (av_new_packet(av_pkt, payload_len + 4) == 0) {
-                        av_pkt->data[0] = 0; av_pkt->data[1] = 0; av_pkt->data[2] = 0; av_pkt->data[3] = 1;
-                        memcpy(av_pkt->data + 4, payload, payload_len);
-                        av_pkt->size = payload_len + 4;
-                        if (avcodec_send_packet(av_ctx, av_pkt) == 0) {
-                            while (avcodec_receive_frame(av_ctx, av_frame) == 0) {
-                                if (!sws_ctx) {
-                                    sws_ctx = sws_getContext(av_frame->width, av_frame->height,
-                                                             av_frame->format,
-                                                             SCREEN_WIDTH, SCREEN_HEIGHT,
-                                                             AV_PIX_FMT_RGB24,
-                                                             SWS_BILINEAR, NULL, NULL, NULL);
-                                }
-                                if (sws_ctx) {
-                                    uint8_t *dest[4] = { rgb_buffer, NULL, NULL, NULL };
-                                    int dest_linesize[4] = { SCREEN_WIDTH * 3, 0, 0, 0 };
-                                    sws_scale(sws_ctx, (const uint8_t * const*)av_frame->data,
-                                              av_frame->linesize, 0, av_frame->height,
-                                              dest, dest_linesize);
-                                    got_frame = 1;
-                                }
-                            }
+                av_packet_unref(av_pkt);
+                /* prepend start code for safety */
+                if (av_new_packet(av_pkt, payload_len + 4) == 0) {
+                    av_pkt->data[0] = 0; av_pkt->data[1] = 0; av_pkt->data[2] = 0; av_pkt->data[3] = 1;
+                    memcpy(av_pkt->data + 4, payload, payload_len);
+                    av_pkt->size = payload_len + 4;
+                    if (avcodec_send_packet(av_ctx, av_pkt) == 0) {
+                        while (avcodec_receive_frame(av_ctx, av_frame) == 0) {
+                            if (decode_frame_apply_palette())
+                                got_frame = 1;
                         }
                     }
                 }
-            }
-        }
-
-        if (!handled_as_h264) {
-            /* Fallback: modo RAW anterior (grayscale indexed) */
-            if (reassembly_len + payload_len <= FRAME_BYTES)
-            {
-                memcpy(reassembly_buf + reassembly_len, payload, payload_len);
-                reassembly_len += payload_len;
-            }
-            else
-            {
-                fprintf(stderr, "receiver_poll: frame excede %d bytes, descartando\n",
-                        FRAME_BYTES);
-                reassembly_len = 0;
-                continue;
-            }
-
-            /* Marker bit = último fragmento del frame */
-            if (rtp.marker)
-            {
-                if (reassembly_len == FRAME_BYTES)
-                {
-                    /* MODO INDEXADO: aplicar paleta para convertir grayscale → RGB */
-                    apply_palette(reassembly_buf, FRAME_BYTES);
-                    got_frame = 1;
-                }
-                else
-                {
-                    fprintf(stderr, "receiver_poll: frame incompleto: %d/%d bytes\n",
-                            reassembly_len, FRAME_BYTES);
-                }
-                reassembly_len = 0;
             }
         }
     }
@@ -423,14 +377,17 @@ void receiver_shutdown(void)
         udp_fd = -1;
     }
 
-    free(reassembly_buf);
-    reassembly_buf = NULL;
     free(rgb_buffer);
-    rgb_buffer     = NULL;
+    rgb_buffer = NULL;
 
     if (h264_buf) {
         free(h264_buf);
         h264_buf = NULL;
+    }
+
+    if (gray_buf) {
+        free(gray_buf);
+        gray_buf = NULL;
     }
 
     /* Free FFmpeg resources if allocated */
@@ -450,9 +407,6 @@ void receiver_shutdown(void)
         avcodec_free_context(&av_ctx);
         av_ctx = NULL;
     }
-
-    reassembly_len = 0;
-    reassembly_ts  = 0;
 }
 
 uint64_t receiver_get_bytes_received(void)

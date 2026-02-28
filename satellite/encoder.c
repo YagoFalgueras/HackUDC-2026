@@ -107,6 +107,9 @@ int encoder_init(void) {
     ctx.param.b_annexb = 1;
     ctx.param.b_repeat_headers = 1;  // Repetir SPS/PPS para resiliencia
 
+    // Rango completo (0-255) para que los índices de paleta no se clampen al rango TV (16-235)
+    ctx.param.vui.b_fullrange = 1;
+
     // Abrir el encoder
     ctx.encoder = x264_encoder_open(&ctx.param);
     if (!ctx.encoder) {
