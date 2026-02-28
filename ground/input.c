@@ -57,6 +57,7 @@ static const char *bit_name(uint16_t bit)
         case INPUT_BIT_STRAFE:   return "STRAFE";
         case INPUT_BIT_ENTER:    return "ENTER";
         case INPUT_BIT_ESCAPE:   return "ESCAPE";
+        case INPUT_BIT_Y:        return "Y";
         default:                 return "?";
     }
 }
@@ -128,6 +129,7 @@ int input_poll(void)
         if (ks[SDL_SCANCODE_SPACE])  new_bf |= INPUT_BIT_USE;
         if (ks[SDL_SCANCODE_RETURN] || ks[SDL_SCANCODE_KP_ENTER]) new_bf |= INPUT_BIT_ENTER;
         if (ks[SDL_SCANCODE_ESCAPE]) new_bf |= INPUT_BIT_ESCAPE;
+        if (ks[SDL_SCANCODE_Y])      new_bf |= INPUT_BIT_Y;
 
         /* Selección de arma: primera tecla activa gana */
         for (w = 0; w < 7; w++)

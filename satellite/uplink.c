@@ -127,6 +127,7 @@ static const char *dk_name(uint16_t k)
         case DK_RALT:       return "STRAFE(ALT)";
         case DK_ENTER:      return "ENTER";
         case DK_ESCAPE:     return "ESCAPE";
+        case 'y':           return "Y";
         default:            return "?";
     }
 }
@@ -259,6 +260,8 @@ int uplink_poll(void)
         process_bit(pkt.bitfield, g_prev_bitfield, INPUT_BIT_STRAFE, DK_RALT);
         process_bit(pkt.bitfield, g_prev_bitfield, INPUT_BIT_ENTER,  DK_ENTER);
         process_bit(pkt.bitfield, g_prev_bitfield, INPUT_BIT_ESCAPE, DK_ESCAPE);
+        /* 'Y' key */
+        process_bit(pkt.bitfield, g_prev_bitfield, INPUT_BIT_Y,     (uint16_t)('y'));
 
         /* Selección de arma (bits 10-12) */
         process_weapon(pkt.bitfield, g_prev_bitfield);

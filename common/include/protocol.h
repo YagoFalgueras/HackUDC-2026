@@ -53,6 +53,8 @@
 #define INPUT_WEAPON_SHIFT  10         /* Bits 10-12: número de arma (0-6) */
 #define INPUT_BIT_ENTER     (1 << 13)  /* Enter — confirmar menú     */
 #define INPUT_BIT_ESCAPE    (1 << 14)  /* Escape — volver en menú    */
+/* Extra key: 'y' */
+#define INPUT_BIT_Y         (1 << 15)  /* Y — acción personalizada   */
 
 typedef struct {
     uint16_t bitfield;    /* Teclas activas (bit flags) */
