@@ -42,6 +42,7 @@
 #include "z_zone.h"
 #include "../../ringbuffer.h"
 #include "../../uplink.h"
+#include <stdbool.h>
 
 // These are (1) the window (or the full screen) that our game is rendered to
 // and (2) the renderer that scales the texture (see below) into this window.
@@ -476,18 +477,31 @@ void I_GetEvent(void)
     /* Procesar input recibido por UDP desde la estación terrestre */
     {
         uint16_t ukey;
-        boolean  upressed;
+        bool  upressed;
         event_t  uev;
 
         uplink_poll();
 
-        while (uplink_pop_key(&ukey, (bool *)&upressed))
+        while (uplink_pop_key(&ukey, &upressed))
         {
-            uev.type  = upressed ? ev_keydown : ev_keyup;
-            uev.data1 = (int)ukey;
-            uev.data2 = upressed ? (int)ukey : 0;
-            uev.data3 = 0;
-            D_PostEvent(&uev);
+            fprintf(stderr, "[SAT/i_video] pop key ukey=0x%02x upressed=%d\n", ukey, upressed);
+            if (upressed)
+            {
+                uev.type  = ev_keydown;
+                uev.data1 = (int)ukey;
+                uev.data2 = (int)ukey;
+                uev.data3 = 0;
+                D_PostEvent(&uev);
+            }
+            else
+            {
+                /* Encolar keyup para que el motor reciba la liberación */
+                uev.type  = ev_keyup;
+                uev.data1 = (int)ukey;
+                uev.data2 = 0;
+                uev.data3 = 0;
+                D_PostEvent(&uev);
+            }
         }
     }
 }

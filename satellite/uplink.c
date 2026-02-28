@@ -21,6 +21,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <time.h>
+#include <stdint.h>
 
 /* Keycodes internos de DOOM (de doomkeys.h) */
 #define DK_UPARROW    0xad
@@ -48,6 +50,11 @@ static int             g_queue_head    = 0;
 static int             g_queue_tail    = 0;
 static pthread_mutex_t g_queue_mutex   = PTHREAD_MUTEX_INITIALIZER;
 static uint16_t        g_prev_bitfield = 0;
+/* Suppress duplicate keydown events enqueued within this many ms */
+#define UPLINK_DEDUP_MS 120
+static uint16_t        g_last_enqueued_key = 0;
+static bool            g_last_enqueued_pressed = false;
+static uint64_t        g_last_enqueued_ms = 0;
 
 /* ------------------------------------------------------------------ */
 /* Helper: encolar un evento de tecla (thread-safe)                    */
@@ -58,6 +65,23 @@ static void enqueue_key_event(uint16_t key, bool pressed)
     int next_tail;
 
     pthread_mutex_lock(&g_queue_mutex);
+
+    /* Deduplicate quick repeated identical events (same key/pressed) */
+    {
+        struct timespec ts;
+        uint64_t now_ms;
+        if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0)
+            now_ms = (uint64_t)ts.tv_sec * 1000ULL + (uint64_t)(ts.tv_nsec / 1000000ULL);
+        else
+            now_ms = 0;
+
+        if (g_last_enqueued_key == key && g_last_enqueued_pressed == pressed &&
+            g_last_enqueued_ms != 0 && now_ms - g_last_enqueued_ms < UPLINK_DEDUP_MS)
+        {
+            pthread_mutex_unlock(&g_queue_mutex);
+            return;
+        }
+    }
 
     next_tail = (g_queue_tail + 1) % KEY_QUEUE_SIZE;
     if (next_tail == g_queue_head)
@@ -70,6 +94,16 @@ static void enqueue_key_event(uint16_t key, bool pressed)
     g_queue[g_queue_tail].key     = key;
     g_queue[g_queue_tail].pressed = pressed;
     g_queue_tail = next_tail;
+
+    {
+        struct timespec ts;
+        uint64_t now_ms = 0;
+        if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0)
+            now_ms = (uint64_t)ts.tv_sec * 1000ULL + (uint64_t)(ts.tv_nsec / 1000000ULL);
+        g_last_enqueued_key = key;
+        g_last_enqueued_pressed = pressed;
+        g_last_enqueued_ms = now_ms;
+    }
 
     pthread_mutex_unlock(&g_queue_mutex);
 }
@@ -94,6 +128,7 @@ static const char *dk_name(uint16_t k)
         case DK_RALT:       return "STRAFE(ALT)";
         case DK_ENTER:      return "ENTER";
         case DK_ESCAPE:     return "ESCAPE";
+        case 'y':           return "Y";
         default:            return "?";
     }
 }
@@ -108,12 +143,14 @@ static void process_bit(uint16_t cur, uint16_t prev, uint16_t mask,
     {
         fprintf(stderr, "[SAT RX] ev_keydown  key=0x%02x (%s)\n",
                 doom_key, dk_name(doom_key));
+        /* Encolar keydown (ejecutar acción una vez). */        
         enqueue_key_event(doom_key, true);
     }
     else if (!cur_set && prev_set)
     {
         fprintf(stderr, "[SAT RX] ev_keyup    key=0x%02x (%s)\n",
                 doom_key, dk_name(doom_key));
+        /* Encolar keyup para detener la acción asociada. */        
         enqueue_key_event(doom_key, false);
     }
 }
@@ -130,12 +167,8 @@ static void process_weapon(uint16_t cur, uint16_t prev)
     if (cur_w == prev_w)
         return;
 
-    if (prev_w > 0)
-    {
-        fprintf(stderr, "[SAT RX] ev_keyup    WEAPON %u\n", prev_w);
-        enqueue_key_event((uint16_t)('0' + prev_w), false);
-    }
-    if (cur_w > 0)
+    /* Ignore weapon release events; only generate a single pulse on new selection */
+    if (cur_w > 0 && cur_w != prev_w)
     {
         fprintf(stderr, "[SAT RX] ev_keydown  WEAPON %u\n", cur_w);
         enqueue_key_event((uint16_t)('0' + cur_w), true);
@@ -228,6 +261,8 @@ int uplink_poll(void)
         process_bit(pkt.bitfield, g_prev_bitfield, INPUT_BIT_STRAFE, DK_RALT);
         process_bit(pkt.bitfield, g_prev_bitfield, INPUT_BIT_ENTER,  DK_ENTER);
         process_bit(pkt.bitfield, g_prev_bitfield, INPUT_BIT_ESCAPE, DK_ESCAPE);
+        /* 'Y' key */
+        process_bit(pkt.bitfield, g_prev_bitfield, INPUT_BIT_Y,     (uint16_t)('y'));
 
         /* Selección de arma (bits 10-12) */
         process_weapon(pkt.bitfield, g_prev_bitfield);
