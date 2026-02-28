@@ -797,7 +797,7 @@ void I_FinishUpdate (void)
                 palette[0].b, SDL_ALPHA_OPAQUE);
         }
     }
-
+    
     // Write framebuffer to ring buffer for encoder thread
     ringbuffer_write_frame(I_VideoBuffer, SCREENWIDTH, SCREENHEIGHT);
 

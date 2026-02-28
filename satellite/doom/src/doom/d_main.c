@@ -408,6 +408,16 @@ void D_RunFrame()
     int tics;
     static int wipestart;
     static boolean wipe;
+    static int frame_count = 0;
+
+    // Solo imprime cada 35 frames (1 segundo a 35 Hz)
+    // if (frame_count % 35 == 0) {
+    //     printf("[DEBUG] D_RunFrame: Frame #%d\n", frame_count);
+    //     fflush(stdout);
+    // }
+    
+    // El frame_count no se si se puede tocar porque no me acuerdo si lo meti yo
+    frame_count++;
 
     if (wipe)
     {
@@ -455,6 +465,9 @@ void D_RunFrame()
 //
 void D_DoomLoop (void)
 {
+    printf("[DEBUG] D_DoomLoop: Entrando en el game loop\n");
+    fflush(stdout);
+
     if (gamevariant == bfgedition &&
         (demorecording || (gameaction == ga_playdemo) || netgame))
     {
@@ -469,11 +482,20 @@ void D_DoomLoop (void)
 
     main_loop_started = true;
 
+    printf("[DEBUG] D_DoomLoop: Inicializando graficos...\n");
+    fflush(stdout);
+
     I_SetWindowTitle(gamedescription);
     I_GraphicsCheckCommandLine();
     I_SetGrabMouseCallback(D_GrabMouseCallback);
     I_RegisterWindowIcon(doom_icon_data, doom_icon_w, doom_icon_h);
+
+    printf("[DEBUG] D_DoomLoop: Llamando I_InitGraphics()...\n");
+    fflush(stdout);
     I_InitGraphics();
+    printf("[DEBUG] D_DoomLoop: I_InitGraphics() completado!\n");
+    fflush(stdout);
+
     EnableLoadingDisk();
 
     TryRunTics();
@@ -487,6 +509,9 @@ void D_DoomLoop (void)
     {
         wipegamestate = gamestate;
     }
+
+    printf("[DEBUG] D_DoomLoop: Entrando en el main loop infinito\n");
+    fflush(stdout);
 
     while (1)
     {
@@ -1293,14 +1318,26 @@ void D_DoomMain (void)
     char file[256];
     char demolumpname[9];
 
+    printf("======================================\n");
+    printf("DOOM MAIN INICIALIZANDOSE\n");
+    printf("======================================\n");
+    fflush(stdout);
+
+    printf("[DEBUG D_DoomMain] 1. Antes de I_AtExit(D_Endoom)\n");
+    fflush(stdout);
     I_AtExit(D_Endoom, false);
 
     // print banner
-
+    printf("[DEBUG D_DoomMain] 2. Antes de I_PrintBanner\n");
+    fflush(stdout);
     I_PrintBanner(PACKAGE_STRING);
 
+    printf("[DEBUG D_DoomMain] 3. Antes de Z_Init\n");
+    fflush(stdout);
     DEH_printf("Z_Init: Init zone memory allocation daemon. \n");
     Z_Init ();
+    printf("[DEBUG D_DoomMain] 4. Después de Z_Init - OK\n");
+    fflush(stdout);
 
     //!
     // @category net
@@ -1309,6 +1346,8 @@ void D_DoomMain (void)
     // in the game itself.
     //
 
+    printf("[DEBUG D_DoomMain] 4.1. Antes de M_CheckParm('-dedicated')\n");
+    fflush(stdout);
     if (M_CheckParm("-dedicated") > 0)
     {
         printf("Dedicated server mode.\n");
@@ -1316,6 +1355,8 @@ void D_DoomMain (void)
 
         // Never returns
     }
+    printf("[DEBUG D_DoomMain] 4.2. Después de check -dedicated\n");
+    fflush(stdout);
 
     //!
     // @category net
@@ -1365,6 +1406,9 @@ void D_DoomMain (void)
     // Disable monsters.
     //
 	
+    printf("[DEBUG D_DoomMain] 4.3. Procesando parámetros de juego\n");
+    fflush(stdout);
+
     nomonsters = M_CheckParm ("-nomonsters");
 
     //!
@@ -1394,7 +1438,11 @@ void D_DoomMain (void)
 
     devparm = M_CheckParm ("-devparm");
 
+    printf("[DEBUG D_DoomMain] 4.4. Antes de I_DisplayFPSDots\n");
+    fflush(stdout);
     I_DisplayFPSDots(devparm);
+    printf("[DEBUG D_DoomMain] 4.5. Después de I_DisplayFPSDots\n");
+    fflush(stdout);
 
     //!
     // @category net
@@ -1419,8 +1467,11 @@ void D_DoomMain (void)
 
     if (devparm)
 	DEH_printf(D_DEVSTR);
-    
+
     // find which dir to use for config files
+
+    printf("[DEBUG D_DoomMain] 4.6. Antes de M_SetConfigDir\n");
+    fflush(stdout);
 
 #ifdef _WIN32
 
@@ -1443,9 +1494,11 @@ void D_DoomMain (void)
 #endif
     {
         // Auto-detect the configuration dir.
-
+        // NULL usa GetDefaultConfigDir() que maneja correctamente exedir
         M_SetConfigDir(NULL);
     }
+    printf("[DEBUG D_DoomMain] 4.7. Después de M_SetConfigDir\n");
+    fflush(stdout);
 
     //!
     // @category game
@@ -1456,10 +1509,13 @@ void D_DoomMain (void)
     // x defaults to 200.  Values are rounded up to 10 and down to 400.
     //
 
+    printf("[DEBUG D_DoomMain] 4.8. Antes de check -turbo\n");
+    fflush(stdout);
+
     if ( (p=M_CheckParm ("-turbo")) )
     {
 	int     scale = 200;
-	
+
 	if (p<myargc-1)
 	    scale = atoi (myargv[p+1]);
 	if (scale < 10)
@@ -1472,21 +1528,34 @@ void D_DoomMain (void)
 	sidemove[0] = sidemove[0]*scale/100;
 	sidemove[1] = sidemove[1]*scale/100;
     }
-    
+
+    printf("[DEBUG D_DoomMain] 4.9. Después de check -turbo\n");
+    fflush(stdout);
+
     // init subsystems
+    printf("[DEBUG D_DoomMain] 5. Antes de V_Init\n");
+    fflush(stdout);
     DEH_printf("V_Init: allocate screens.\n");
     V_Init ();
+    printf("[DEBUG D_DoomMain] 6. Después de V_Init - OK\n");
+    fflush(stdout);
 
     // Load configuration files before initialising other subsystems.
+    printf("[DEBUG D_DoomMain] 7. Antes de M_LoadDefaults\n");
+    fflush(stdout);
     DEH_printf("M_LoadDefaults: Load system defaults.\n");
     M_SetConfigFilenames("default.cfg", PROGRAM_PREFIX "doom.cfg");
     D_BindVariables();
     M_LoadDefaults();
+    printf("[DEBUG D_DoomMain] 8. Después de M_LoadDefaults - OK\n");
+    fflush(stdout);
 
     // Save configuration at exit.
     I_AtExit(M_SaveDefaults, false);
 
     // Find main IWAD file and load it.
+    printf("[DEBUG D_DoomMain] 9. Antes de D_FindIWAD\n");
+    fflush(stdout);
     iwadfile = D_FindIWAD(IWAD_MASK_DOOM, &gamemission);
 
     // None found?
@@ -1496,18 +1565,37 @@ void D_DoomMain (void)
         I_Error("Game mode indeterminate.  No IWAD file was found.  Try\n"
                 "specifying one with the '-iwad' command line parameter.\n");
     }
+    printf("[DEBUG D_DoomMain] 10. Después de D_FindIWAD - OK (iwadfile=%s)\n", iwadfile);
+    fflush(stdout);
 
     modifiedgame = false;
 
+    printf("[DEBUG D_DoomMain] 11. Antes de W_Init y D_AddFile\n");
+    fflush(stdout);
     DEH_printf("W_Init: Init WADfiles.\n");
     D_AddFile(iwadfile);
+    printf("[DEBUG D_DoomMain] 12. Después de D_AddFile - OK\n");
+    fflush(stdout);
 
+    printf("[DEBUG D_DoomMain] 13. Antes de W_CheckCorrectIWAD\n");
+    fflush(stdout);
     W_CheckCorrectIWAD(doom);
+    printf("[DEBUG D_DoomMain] 14. Después de W_CheckCorrectIWAD - OK\n");
+    fflush(stdout);
 
     // Now that we've loaded the IWAD, we can figure out what gamemission
     // we're playing and which version of Vanilla Doom we need to emulate.
+    printf("[DEBUG D_DoomMain] 15. Antes de D_IdentifyVersion\n");
+    fflush(stdout);
     D_IdentifyVersion();
+    printf("[DEBUG D_DoomMain] 16. Después de D_IdentifyVersion - OK\n");
+    fflush(stdout);
+
+    printf("[DEBUG D_DoomMain] 17. Antes de InitGameVersion\n");
+    fflush(stdout);
     InitGameVersion();
+    printf("[DEBUG D_DoomMain] 18. Después de InitGameVersion - OK\n");
+    fflush(stdout);
 
     // Check which IWAD variant we are using.
 
@@ -1916,28 +2004,60 @@ void D_DoomMain (void)
         startloadgame = -1;
     }
 
+    printf("[DEBUG D_DoomMain] 19. Antes de M_Init\n");
+    fflush(stdout);
     DEH_printf("M_Init: Init miscellaneous info.\n");
     M_Init ();
+    printf("[DEBUG D_DoomMain] 20. Después de M_Init - OK\n");
+    fflush(stdout);
 
+    printf("[DEBUG D_DoomMain] 21. Antes de R_Init\n");
+    fflush(stdout);
     DEH_printf("R_Init: Init DOOM refresh daemon - ");
     R_Init ();
+    printf("[DEBUG D_DoomMain] 22. Después de R_Init - OK\n");
+    fflush(stdout);
 
+    printf("[DEBUG D_DoomMain] 23. Antes de P_Init\n");
+    fflush(stdout);
     DEH_printf("\nP_Init: Init Playloop state.\n");
     P_Init ();
+    printf("[DEBUG D_DoomMain] 24. Después de P_Init - OK\n");
+    fflush(stdout);
 
+    printf("[DEBUG D_DoomMain] 25. Antes de S_Init\n");
+    fflush(stdout);
     DEH_printf("S_Init: Setting up sound.\n");
     S_Init (sfxVolume * 8, musicVolume * 8);
+    printf("[DEBUG D_DoomMain] 26. Después de S_Init - OK\n");
+    fflush(stdout);
 
+    printf("[DEBUG D_DoomMain] 27. Antes de D_CheckNetGame\n");
+    fflush(stdout);
     DEH_printf("D_CheckNetGame: Checking network game status.\n");
     D_CheckNetGame ();
+    printf("[DEBUG D_DoomMain] 28. Después de D_CheckNetGame - OK\n");
+    fflush(stdout);
 
+    printf("[DEBUG D_DoomMain] 29. Antes de PrintGameVersion\n");
+    fflush(stdout);
     PrintGameVersion();
+    printf("[DEBUG D_DoomMain] 30. Después de PrintGameVersion - OK\n");
+    fflush(stdout);
 
+    printf("[DEBUG D_DoomMain] 31. Antes de HU_Init\n");
+    fflush(stdout);
     DEH_printf("HU_Init: Setting up heads up display.\n");
     HU_Init ();
+    printf("[DEBUG D_DoomMain] 32. Después de HU_Init - OK\n");
+    fflush(stdout);
 
+    printf("[DEBUG D_DoomMain] 33. Antes de ST_Init\n");
+    fflush(stdout);
     DEH_printf("ST_Init: Init status bar.\n");
     ST_Init ();
+    printf("[DEBUG D_DoomMain] 34. Después de ST_Init - OK\n");
+    fflush(stdout);
 
     // If Doom II without a MAP01 lump, this is a store demo.
     // Moved this here so that MAP01 isn't constantly looked up
@@ -1992,11 +2112,25 @@ void D_DoomMain (void)
     if (gameaction != ga_loadgame )
     {
 	if (autostart || netgame)
+        {
+            printf("[DEBUG D_DoomMain] 35. Antes de G_InitNew\n");
+            fflush(stdout);
 	    G_InitNew (startskill, startepisode, startmap);
+            printf("[DEBUG D_DoomMain] 36. Después de G_InitNew - OK\n");
+            fflush(stdout);
+        }
 	else
+        {
+            printf("[DEBUG D_DoomMain] 37. Antes de D_StartTitle\n");
+            fflush(stdout);
 	    D_StartTitle ();                // start up intro loop
+            printf("[DEBUG D_DoomMain] 38. Después de D_StartTitle - OK\n");
+            fflush(stdout);
+        }
     }
 
+    printf("[DEBUG D_DoomMain] 39. Antes de D_DoomLoop (nunca debería volver)\n");
+    fflush(stdout);
     D_DoomLoop ();  // never returns
 }
 

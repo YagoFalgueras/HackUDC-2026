@@ -65,4 +65,20 @@ void ringbuffer_init(void);
  */
 void ringbuffer_shutdown(void);
 
+/**
+ * @brief Read a frame from the ring buffer
+ *
+ * This function is called from the encoder thread to retrieve rendered frames.
+ * It attempts to read the next available frame from the ring buffer.
+ *
+ * @param frame_data Output buffer for RGB888 data (must be at least FRAME_WIDTH * FRAME_HEIGHT * 3 bytes)
+ * @param frame_number Output for frame sequence number
+ *
+ * @return true if frame was read successfully, false if no frame available
+ *
+ * @note Non-blocking: returns immediately if no frame is ready
+ * @note Thread-safe: uses atomic operations for state transitions
+ */
+bool ringbuffer_read_frame(uint8_t *frame_data, uint32_t *frame_number);
+
 #endif // RINGBUFFER_H

@@ -50,8 +50,12 @@ int downlink_send_raw_frame(const void *buffer, size_t size)
             return -1;
     }
 
-    return (int)sendto(udp_socket, buffer, size, 0,
-                       (struct sockaddr *)&udp_dest, sizeof(udp_dest));
+    int sent = (int)sendto(udp_socket, buffer, size, 0,
+                           (struct sockaddr *)&udp_dest, sizeof(udp_dest));
+
+    printf("[SATELLITE] Sent UDP packet: %d bytes (requested: %zu)\n", sent, size);
+
+    return sent;
 }
 
 int downlink_send_nals(uint8_t **nals, size_t *nal_sizes, int num_nals, uint32_t timestamp)

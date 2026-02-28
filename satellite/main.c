@@ -13,12 +13,13 @@
 // Source - https://stackoverflow.com/a/40515669
 // Retrieved 2026-02-28, License - CC BY-SA 3.0
 // IMPORTANTE: _POSIX_C_SOURCE debe definirse ANTES de cualquier include
-// para habilitar CLOCK_MONOTONIC y clock_nanosleep
-// Requiere POSIX.1-2001 (200112L) para clock_nanosleep
-#define _POSIX_C_SOURCE 200112L
+// para habilitar CLOCK_MONOTONIC, clock_nanosleep y strdup
+// Requiere POSIX.1-2008 (200809L) para strdup
+#define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <unistd.h>
@@ -45,17 +46,8 @@
  * - Flags posibles: EMPTY (0), WRITING (1), READY (2), READING (3)
  */
 
-#define RING_BUFFER_SIZE 3
-
-typedef struct {
-    uint8_t frame_data[FRAME_WIDTH * FRAME_HEIGHT * 3]; // RGB888
-    atomic_int status; // 0=EMPTY, 1=WRITING, 2=READY, 3=READING
-    uint32_t frame_number;
-} RingBufferSlot;
-
-RingBufferSlot g_ring_buffer[RING_BUFFER_SIZE];
-atomic_int g_write_index = 0;
-atomic_int g_read_index = 0;
+// Ring buffer ahora se maneja en ringbuffer.c/h
+// (eliminado el ring buffer local para evitar duplicación)
 
 /**
  * PASO 2: VARIABLES GLOBALES DE CONTROL
@@ -96,6 +88,10 @@ extern void D_DoomMain(void);
 extern int myargc;
 extern char **myargv;
 
+// Funciones de inicialización de DOOM (necesarias antes de D_DoomMain)
+extern void M_FindResponseFile(void);
+extern void M_SetExeDir(void);
+
 void* doom_thread_func() {
     printf("[DOOM THREAD] Iniciando en core 0...\n");
 
@@ -106,22 +102,29 @@ void* doom_thread_func() {
     // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
     // Preparar argumentos para DOOM
-    // Simula línea de comandos con opciones mínimas
-    static char *doom_argv[] = {
-        "doom-satellite",      // argv[0] - nombre del programa
-        "-iwad", "doom1.wad",  // IWAD por defecto (shareware)
-        "-window",             // Modo ventana (aunque no renderizamos)
-        "-nogui",              // Sin GUI/menús si es posible
-        "-nomusic",            // Sin música
-        "-nosound",            // Sin sonido
-        NULL
-    };
+    // IMPORTANTE: Duplicar cadenas en heap porque DOOM puede modificarlas o liberarlas
+    // Las cadenas literales están en .rodata (read-only) y causarían segfault
+    static char *doom_argv[8];
+    doom_argv[0] = strdup("doom-satellite");
+    doom_argv[1] = strdup("-iwad");
+    doom_argv[2] = strdup("/home/kaox/Documentos/5ºGrao/2ºCuatri/hackudc/HackUDC-2026/freedoom1.wad");
+    doom_argv[3] = strdup("-window");
+    doom_argv[4] = strdup("-nogui");
+    doom_argv[5] = strdup("-nomusic");
+    doom_argv[6] = strdup("-nosound");
+    doom_argv[7] = NULL;
 
-    myargc = 6;
+    myargc = 7;
     myargv = doom_argv;
 
     printf("[DOOM THREAD] Iniciando motor DOOM...\n");
     printf("[DOOM THREAD] IWAD: %s\n", doom_argv[2]);
+
+    // CRÍTICO: Inicializar subsistemas de DOOM antes de D_DoomMain()
+    // M_FindResponseFile() procesa archivos de respuesta (@response.txt)
+    // M_SetExeDir() establece exedir (requerido por M_SetConfigDir)
+    M_FindResponseFile();
+    M_SetExeDir();
 
     // Iniciar motor DOOM
     // Esta función contiene un loop infinito que corre a 35 Hz
@@ -182,26 +185,22 @@ void* encoder_thread_func(void* arg) {
 
     printf("[ENCODER THREAD] Loop principal iniciado (20 FPS)\n");
 
+    // Buffer temporal para frame RGB
+    uint8_t frame_buffer[FRAME_WIDTH * FRAME_HEIGHT * 3];
+    uint32_t frame_num;
+
     // Loop principal de encoding y transmisión
     while (g_running) {
-        // Buscar slot con frame listo para procesar
-        int slot = atomic_load(&g_read_index);
-        int status = atomic_load(&g_ring_buffer[slot].status);
-
-        if (status == 2) {  // READY - hay un frame disponible
-            // Marcar slot como READING (estado 3)
-            atomic_store(&g_ring_buffer[slot].status, 3);
-
-            // Obtener puntero al frame RGB
-            uint8_t* rgb_data = g_ring_buffer[slot].frame_data;
-            uint32_t frame_num = g_ring_buffer[slot].frame_number;
+        // Intentar leer frame del ring buffer compartido
+        if (ringbuffer_read_frame(frame_buffer, &frame_num)) {
+            printf("[ENCODER THREAD] Recogido frame #%u del ring buffer\n", frame_num);
 
             // =========================================================================
             // TEMPORAL: Enviar frame raw directamente sin encoding H.264
             // =========================================================================
             // El buffer contiene RGB de 176x144x3 bytes del ringbuffer
             size_t frame_size = FRAME_WIDTH * FRAME_HEIGHT * 3;
-            int bytes_sent = downlink_send_raw_frame(rgb_data, frame_size);
+            int bytes_sent = downlink_send_raw_frame(frame_buffer, frame_size);
 
             if (bytes_sent > 0) {
                 frames_encoded++;
@@ -220,7 +219,7 @@ void* encoder_thread_func(void* arg) {
             // =========================================================================
             // // Encodear frame RGB → H.264 NAL units
             // encoder_output_t output;
-            // int num_nals = encoder_encode_frame(rgb_data, &output);
+            // int num_nals = encoder_encode_frame(frame_buffer, &output);
             //
             // if (num_nals > 0) {
             //     // Transmitir los NAL units por downlink
@@ -240,23 +239,6 @@ void* encoder_thread_func(void* arg) {
             //     fprintf(stderr, "[ENCODER THREAD] Error al encodear frame %u\n", frame_num);
             // }
             // // num_nals == 0 significa delayed frame, no es error
-
-            // Marcar slot como EMPTY (estado 0) para reutilización
-            atomic_store(&g_ring_buffer[slot].status, 0);
-
-            // Avanzar read_index de forma circular
-            atomic_store(&g_read_index, (slot + 1) % RING_BUFFER_SIZE);
-
-        } else if (status == 0) {
-            // EMPTY - no hay frame disponible, encoder va más rápido que DOOM
-            // Esto es esperado ya que DOOM corre a 35 Hz y encoder a 20 FPS
-            // No hacer nada, esperar siguiente iteración
-        } else if (status == 1) {
-            // WRITING - DOOM está escribiendo el frame, esperar
-            // Situación temporal, no contar como drop
-        } else {
-            // Estado inesperado
-            fprintf(stderr, "[ENCODER THREAD] Warning: Estado de slot inesperado: %d\n", status);
         }
 
         // Dormir hasta el siguiente frame (timing preciso a 20 FPS)
@@ -327,27 +309,20 @@ int main(int argc, char** argv) {
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
-    // PASO 6.2 - Inicializar ring buffer
-    // Todos los slots empiezan en estado EMPTY (0)
-    for (int i = 0; i < RING_BUFFER_SIZE; i++) {
-        atomic_init(&g_ring_buffer[i].status, 0); // EMPTY
-        g_ring_buffer[i].frame_number = 0;
-    }
-    atomic_init(&g_write_index, 0);
-    atomic_init(&g_read_index, 0);
-    printf("[MAIN] Ring buffer inicializado (%d slots)\n", RING_BUFFER_SIZE);
+    // PASO 6.2 - El ring buffer se inicializa automáticamente en i_video.c
+    // mediante ringbuffer_init() cuando DOOM arranca
 
     // PASO 6.3 - Inicializar subsistemas
     // uplink: recibe comandos del jugador por UDP
     printf("[MAIN] Inicializando uplink en puerto %d...\n", uplink_port);
-    if (!uplink_init(uplink_port)) {
+    if (uplink_init(uplink_port) < 0) {
         fprintf(stderr, "[ERROR] Fallo al inicializar uplink\n");
         return 1;
     }
 
     // downlink: envía vídeo H.264 a estación terrestre
     printf("[MAIN] Inicializando downlink hacia %s:%d...\n", ground_ip, downlink_port);
-    if (!downlink_init(ground_ip, downlink_port)) {
+    if (downlink_init(ground_ip, downlink_port) < 0) {
         fprintf(stderr, "[ERROR] Fallo al inicializar downlink\n");
         uplink_shutdown();
         return 1;

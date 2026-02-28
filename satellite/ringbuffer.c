@@ -151,6 +151,8 @@ bool ringbuffer_write_frame(const uint8_t *pixels, int width, int height) {
     // Advance write index (circular)
     atomic_store(&g_write_index, (slot + 1) % RING_BUFFER_SIZE);
 
+    printf("[RINGBUFFER] Frame #%u written to slot %d (READY)\n", g_ring_buffer[slot].frame_number, slot);
+
     return true;
 }
 

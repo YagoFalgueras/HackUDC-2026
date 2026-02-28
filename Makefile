@@ -70,9 +70,11 @@ GROUND_OBJECTS = $(patsubst $(GROUND_DIR)/%.c,$(GROUND_BUILD)/%.o,$(GROUND_SOURC
 # Incluye librerías estáticas de DOOM (Chocolate Doom)
 DOOM_DIR = $(SATELLITE_DIR)/doom
 
-# Recoger todos los .o de DOOM excepto i_main.o (que contiene su propio main())
-# y z_zone.o (que conflictúa con z_native.o)
-DOOM_OBJS = $(filter-out %/i_main.o %/z_zone.o %/w_file_win32.o %/d_dedicated.o %/setup_*.o, $(wildcard $(DOOM_DIR)/src/*.o))
+# Recoger todos los .o de DOOM excepto:
+# - i_main.o (que contiene su propio main())
+# - z_zone.o (que conflictúa con z_native.o)
+# - ringbuffer.o y uplink.o (compilados por separado en satellite/)
+DOOM_OBJS = $(filter-out %/i_main.o %/z_zone.o %/w_file_win32.o %/d_dedicated.o %/setup_*.o %/ringbuffer.o %/uplink.o, $(wildcard $(DOOM_DIR)/src/*.o))
 # Orden correcto: objetos primero, luego librerías estáticas
 # Usar --start-group/--end-group para resolver referencias circulares
 DOOM_STATIC_LIBS = \
