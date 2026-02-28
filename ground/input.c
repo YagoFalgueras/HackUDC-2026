@@ -123,14 +123,26 @@ int input_poll(void)
                     else         g_bitfield &= ~INPUT_BIT_USE;
                     break;
 
-                case SDLK_LSHIFT:
+                case SDLK_COMMA:
                     if (pressed) g_bitfield |=  INPUT_BIT_SLEFT;
                     else         g_bitfield &= ~INPUT_BIT_SLEFT;
                     break;
 
-                case SDLK_RSHIFT:
+                case SDLK_PERIOD:
                     if (pressed) g_bitfield |=  INPUT_BIT_SRIGHT;
                     else         g_bitfield &= ~INPUT_BIT_SRIGHT;
+                    break;
+
+                case SDLK_LSHIFT:
+                case SDLK_RSHIFT:
+                    if (pressed) g_bitfield |=  INPUT_BIT_RUN;
+                    else         g_bitfield &= ~INPUT_BIT_RUN;
+                    break;
+
+                case SDLK_LALT:
+                case SDLK_RALT:
+                    if (pressed) g_bitfield |=  INPUT_BIT_STRAFE;
+                    else         g_bitfield &= ~INPUT_BIT_STRAFE;
                     break;
 
                 /* Selección de arma: teclas 1-7 */

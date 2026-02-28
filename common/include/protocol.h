@@ -25,6 +25,10 @@
 #ifndef DOOM_SAT_PROTOCOL_H
 #define DOOM_SAT_PROTOCOL_H
 
+#ifndef _POSIX_C_SOURCE
+#  define _POSIX_C_SOURCE 200809L
+#endif
+
 #include <stdint.h>
 #include <time.h>
 
@@ -36,21 +40,32 @@
 /* ------------------------------------------------------------------ */
 
 /* Bits del bitfield de teclas */
-#define INPUT_BIT_FORWARD   (1 << 0)   /* Flecha arriba   */
-#define INPUT_BIT_BACKWARD  (1 << 1)   /* Flecha abajo    */
-#define INPUT_BIT_LEFT      (1 << 2)   /* Flecha izquierda */
-#define INPUT_BIT_RIGHT     (1 << 3)   /* Flecha derecha  */
-#define INPUT_BIT_FIRE      (1 << 4)   /* Ctrl            */
-#define INPUT_BIT_USE       (1 << 5)   /* Espacio         */
-#define INPUT_BIT_SLEFT     (1 << 6)   /* Shift izquierdo */
-#define INPUT_BIT_SRIGHT    (1 << 7)   /* Shift derecho   */
-#define INPUT_WEAPON_SHIFT  8          /* Bits 8-10: número de arma (0-6) */
+#define INPUT_BIT_FORWARD   (1 << 0)   /* Flecha arriba              */
+#define INPUT_BIT_BACKWARD  (1 << 1)   /* Flecha abajo               */
+#define INPUT_BIT_LEFT      (1 << 2)   /* Flecha izquierda (girar)   */
+#define INPUT_BIT_RIGHT     (1 << 3)   /* Flecha derecha  (girar)    */
+#define INPUT_BIT_FIRE      (1 << 4)   /* Ctrl — disparar            */
+#define INPUT_BIT_USE       (1 << 5)   /* Espacio — usar/abrir       */
+#define INPUT_BIT_SLEFT     (1 << 6)   /* , — strafe izquierda       */
+#define INPUT_BIT_SRIGHT    (1 << 7)   /* . — strafe derecha         */
+#define INPUT_BIT_RUN       (1 << 8)   /* Shift — correr             */
+#define INPUT_BIT_STRAFE    (1 << 9)   /* Alt — modo strafe          */
+#define INPUT_WEAPON_SHIFT  10         /* Bits 10-12: número de arma (0-6) */
 
 typedef struct {
     uint16_t bitfield;    /* Teclas activas (bit flags) */
     uint32_t timestamp;   /* ms monótonos desde inicio del proceso */
     uint16_t seq_number;  /* Contador de paquetes enviados */
 } input_packet_t;
+
+/* Deserializa 8 bytes (big-endian) a input_packet_t */
+static inline void unpack_input(const uint8_t *buf, input_packet_t *pkt)
+{
+    pkt->bitfield   = ((uint16_t)buf[0] << 8) | (uint16_t)buf[1];
+    pkt->timestamp  = ((uint32_t)buf[2] << 24) | ((uint32_t)buf[3] << 16)
+                    | ((uint32_t)buf[4] <<  8) |  (uint32_t)buf[5];
+    pkt->seq_number = ((uint16_t)buf[6] << 8) | (uint16_t)buf[7];
+}
 
 /* Serializa input_packet_t a 8 bytes en orden big-endian */
 static inline void pack_input(const input_packet_t *pkt, uint8_t *buf)

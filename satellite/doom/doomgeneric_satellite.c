@@ -41,4 +41,30 @@
  */
 
 /* TODO: Incluir doomgeneric.h, frame_manager.h, config.h */
-/* TODO: Implementar callbacks */
+/* TODO: Implementar DG_Init, DG_DrawFrame, DG_SleepMs, DG_GetTicksMs, DG_SetWindowTitle */
+
+#include "../uplink.h"
+#include <stdbool.h>
+
+/**
+ * DG_GetKey — Lee el siguiente evento de tecla de la cola uplink.
+ *
+ * Llamado por el motor DOOM en cada tick para consumir input del jugador.
+ * La cola es alimentada por uplink_poll() que debe ser llamado regularmente
+ * desde el game thread.
+ *
+ * Retorna 1 si hay evento (pressed y doom_key escritos), 0 si la cola vacía.
+ */
+int DG_GetKey(int *pressed, unsigned char *doom_key)
+{
+    uint16_t key;
+    bool     is_pressed;
+
+    if (uplink_pop_key(&key, &is_pressed))
+    {
+        *pressed  = is_pressed ? 1 : 0;
+        *doom_key = (unsigned char)key;
+        return 1;
+    }
+    return 0;
+}
