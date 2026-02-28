@@ -26,14 +26,12 @@ typedef struct {
 static encoder_ctx_t ctx = {0};
 
 /**
- * Conversión manual RGB -> YUV420p
+ * Conversión grayscale (8-bit indexed) -> YUV420p
  *
- * Formula ITU-R BT.601:
- * Y  =  0.299*R + 0.587*G + 0.114*B
- * Cb = -0.169*R - 0.331*G + 0.500*B + 128
- * Cr =  0.500*R - 0.419*G - 0.081*B + 128
+ * Para escala de grises, simplemente copiamos los valores de luminancia Y
+ * y establecemos U/V constantes a 128 (gris neutro en espacio de color YUV)
  */
-static void rgb_to_yuv420p(const uint8_t *rgb, x264_picture_t *pic, int width, int height) {
+static void grayscale_to_yuv420p(const uint8_t *grayscale, x264_picture_t *pic, int width, int height) {
     uint8_t *y_plane = pic->img.plane[0];
     uint8_t *u_plane = pic->img.plane[1];
     uint8_t *v_plane = pic->img.plane[2];
@@ -41,52 +39,23 @@ static void rgb_to_yuv420p(const uint8_t *rgb, x264_picture_t *pic, int width, i
     int y_stride = pic->img.i_stride[0];
     int uv_stride = pic->img.i_stride[1];
 
-    // Convertir RGB a Y (luminancia) para cada píxel
+    // Copiar valores de luminancia Y directamente (grayscale ya es luminancia)
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            int rgb_idx = (y * width + x) * 3;
-            uint8_t r = rgb[rgb_idx + 0];
-            uint8_t g = rgb[rgb_idx + 1];
-            uint8_t b = rgb[rgb_idx + 2];
-
-            // Calcular Y
-            int Y = (299 * r + 587 * g + 114 * b) / 1000;
-            y_plane[y * y_stride + x] = Y;
+            int idx = y * width + x;
+            y_plane[y * y_stride + x] = grayscale[idx];
         }
     }
 
-    // Convertir RGB a UV (croma) con submuestreo 2x2
+    // Para escala de grises: U y V constantes = 128 (gris neutro)
     // En YUV420p, cada 4 píxeles (2×2) comparten los mismos valores U y V
-    for (int y = 0; y < height; y += 2) {
-        for (int x = 0; x < width; x += 2) {
-            // Promediar 4 píxeles RGB para obtener un solo valor UV
-            int r_sum = 0, g_sum = 0, b_sum = 0;
+    int uv_width = (width + 1) / 2;
+    int uv_height = (height + 1) / 2;
 
-            for (int dy = 0; dy < 2 && (y + dy) < height; dy++) {
-                for (int dx = 0; dx < 2 && (x + dx) < width; dx++) {
-                    int rgb_idx = ((y + dy) * width + (x + dx)) * 3;
-                    r_sum += rgb[rgb_idx + 0];
-                    g_sum += rgb[rgb_idx + 1];
-                    b_sum += rgb[rgb_idx + 2];
-                }
-            }
-
-            uint8_t r_avg = r_sum / 4;
-            uint8_t g_avg = g_sum / 4;
-            uint8_t b_avg = b_sum / 4;
-
-            // Calcular Cb (U) y Cr (V)
-            int U = (-169 * r_avg - 331 * g_avg + 500 * b_avg) / 1000 + 128;
-            int V = ( 500 * r_avg - 419 * g_avg -  81 * b_avg) / 1000 + 128;
-
-            // Clamp a rango válido [0, 255]
-            U = U < 0 ? 0 : (U > 255 ? 255 : U);
-            V = V < 0 ? 0 : (V > 255 ? 255 : V);
-
-            int uv_x = x / 2;
-            int uv_y = y / 2;
-            u_plane[uv_y * uv_stride + uv_x] = U;
-            v_plane[uv_y * uv_stride + uv_x] = V;
+    for (int y = 0; y < uv_height; y++) {
+        for (int x = 0; x < uv_width; x++) {
+            u_plane[y * uv_stride + x] = 128;  // Neutral chroma
+            v_plane[y * uv_stride + x] = 128;  // Neutral chroma
         }
     }
 }
@@ -173,14 +142,14 @@ int encoder_init(void) {
     return 0;
 }
 
-int encoder_encode_frame(const uint8_t *rgb_data, encoder_output_t *output) {
-    if (!ctx.encoder || !rgb_data || !output) {
+int encoder_encode_frame(const uint8_t *grayscale_data, encoder_output_t *output) {
+    if (!ctx.encoder || !grayscale_data || !output) {
         fprintf(stderr, "Error: Invalid encoder state or parameters\n");
         return -1;
     }
 
-    // Convertir RGB -> YUV420p
-    rgb_to_yuv420p(rgb_data, &ctx.pic_in, FRAME_WIDTH, FRAME_HEIGHT);
+    // Convertir grayscale (8-bit indexed) -> YUV420p
+    grayscale_to_yuv420p(grayscale_data, &ctx.pic_in, FRAME_WIDTH, FRAME_HEIGHT);
 
     // Configurar el PTS (Presentation Time Stamp)
     // Se incrementa automáticamente basado en el número de frames

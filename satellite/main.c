@@ -185,8 +185,8 @@ void* encoder_thread_func(void* arg) {
 
     printf("[ENCODER THREAD] Loop principal iniciado (20 FPS)\n");
 
-    // Buffer temporal para frame RGB
-    uint8_t frame_buffer[FRAME_WIDTH * FRAME_HEIGHT * 3];
+    // Buffer temporal para frame grayscale (8-bit indexed)
+    uint8_t frame_buffer[FRAME_WIDTH * FRAME_HEIGHT];
     uint32_t frame_num;
 
     // Loop principal de encoding y transmisión
@@ -198,8 +198,8 @@ void* encoder_thread_func(void* arg) {
             // =========================================================================
             // TEMPORAL: Enviar frame raw directamente sin encoding H.264
             // =========================================================================
-            // El buffer contiene RGB de 176x144x3 bytes del ringbuffer
-            size_t frame_size = FRAME_WIDTH * FRAME_HEIGHT * 3;
+            // El buffer contiene grayscale de 176x144 bytes del ringbuffer
+            size_t frame_size = FRAME_WIDTH * FRAME_HEIGHT;
             int bytes_sent = downlink_send_raw_frame(frame_buffer, frame_size);
 
             if (bytes_sent > 0) {

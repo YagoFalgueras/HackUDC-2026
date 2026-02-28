@@ -24,8 +24,8 @@
  * @brief Write a DOOM frame to the ring buffer
  *
  * This function is called from DOOM's I_FinishUpdate() to submit rendered frames.
- * It converts the 8-bit paletted framebuffer to RGB format and writes it to the
- * next available ring buffer slot.
+ * It writes the 8-bit indexed framebuffer (grayscale) directly to the ring buffer
+ * without RGB conversion, preserving bandwidth.
  *
  * @param pixels Pointer to DOOM's paletted framebuffer (8-bit indexed color)
  * @param width Frame width in pixels (typically 320 for DOOM)
@@ -33,7 +33,8 @@
  *
  * @return true if frame was written successfully, false if buffer was full
  *
- * @note This function performs palette lookup to convert 8-bit to 24-bit RGB
+ * @note This function downsamples and stores grayscale (1 byte/pixel)
+ * @note Palette conversion is deferred to ground station for bandwidth optimization
  * @note Non-blocking: returns immediately if no slot is available
  * @note Thread-safe: uses atomic operations for state transitions
  *
@@ -71,7 +72,7 @@ void ringbuffer_shutdown(void);
  * This function is called from the encoder thread to retrieve rendered frames.
  * It attempts to read the next available frame from the ring buffer.
  *
- * @param frame_data Output buffer for RGB888 data (must be at least FRAME_WIDTH * FRAME_HEIGHT * 3 bytes)
+ * @param frame_data Output buffer for grayscale data (must be at least FRAME_WIDTH * FRAME_HEIGHT bytes)
  * @param frame_number Output for frame sequence number
  *
  * @return true if frame was read successfully, false if no frame available

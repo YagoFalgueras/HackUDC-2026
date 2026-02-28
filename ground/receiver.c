@@ -16,12 +16,10 @@
 
 #define SCREEN_WIDTH   176
 #define SCREEN_HEIGHT  144
-#define FRAME_BYTES    (SCREEN_WIDTH * SCREEN_HEIGHT * 3)   /* RGB raw: 176*144*3 = 75888 bytes */
-#define RGB_BUF_SIZE   (FRAME_BYTES)
+#define FRAME_BYTES    (SCREEN_WIDTH * SCREEN_HEIGHT)       /* Grayscale: 176*144 = 25344 bytes */
+#define RGB_BUF_SIZE   (SCREEN_WIDTH * SCREEN_HEIGHT * 3)   /* RGB output: 176*144*3 = 75888 bytes */
 
-/* Máximo payload por paquete UDP (MTU 1500 - IP 20 - UDP 8 - RTP 12 = 1460) */
-#define MAX_PAYLOAD    1460
-#define UDP_BUF_SIZE   2048
+#define UDP_BUF_SIZE   25344
 
 /* ---------- RTP header (12 bytes fijos, RFC 3550) ---------- */
 
@@ -85,19 +83,19 @@ static int unpack_rtp_header(const uint8_t *buf, int len, rtp_header_t *hdr)
 }
 
 /**
- * COMENTADO: Aplica doom_palette sobre el frame indexado y escribe en rgb_buffer.
- * Ya no es necesario porque recibimos RGB raw directamente del satélite.
+ * Aplica doom_palette sobre el frame indexado (grayscale) y escribe en rgb_buffer.
+ * Convierte datos de 8-bit indexed (1 byte/pixel) a RGB888 (3 bytes/pixel).
  */
-// static void apply_palette(const uint8_t *indexed, int len)
-// {
-//     for (int i = 0; i < len; i++)
-//     {
-//         uint8_t idx = indexed[i];
-//         rgb_buffer[i * 3 + 0] = doom_palette[idx][0];
-//         rgb_buffer[i * 3 + 1] = doom_palette[idx][1];
-//         rgb_buffer[i * 3 + 2] = doom_palette[idx][2];
-//     }
-// }
+static void apply_palette(const uint8_t *indexed, int len)
+{
+    for (int i = 0; i < len; i++)
+    {
+        uint8_t idx = indexed[i];
+        rgb_buffer[i * 3 + 0] = doom_palette[idx][0];
+        rgb_buffer[i * 3 + 1] = doom_palette[idx][1];
+        rgb_buffer[i * 3 + 2] = doom_palette[idx][2];
+    }
+}
 
 /* ------------------------------------------------------------------ */
 /*  API pública                                                        */
@@ -154,7 +152,7 @@ int receiver_init(int listen_port)
     reassembly_ts  = 0;
 
     fprintf(stderr, "receiver_init: escuchando en puerto %d  "
-            "(%dx%d RGB raw, %d bytes por frame)\n",
+            "(%dx%d grayscale indexed, %d bytes por frame)\n",
             listen_port, SCREEN_WIDTH, SCREEN_HEIGHT, FRAME_BYTES);
     return 0;
 }
@@ -180,6 +178,8 @@ const uint8_t *receiver_poll(void)
                         strerror(errno));
             break;
         }
+
+        printf("UDP packet received: %zd bytes\n", bytes);
 
         /* Parsear header RTP */
         rtp_header_t rtp;
@@ -218,14 +218,9 @@ const uint8_t *receiver_poll(void)
         {
             if (reassembly_len == FRAME_BYTES)
             {
-                /* MODO RGB RAW: copiar directamente sin aplicar paleta */
-                memcpy(rgb_buffer, reassembly_buf, FRAME_BYTES);
+                /* MODO INDEXADO: aplicar paleta para convertir grayscale → RGB */
+                apply_palette(reassembly_buf, FRAME_BYTES);
                 got_frame = 1;
-
-                /* MODO INDEXADO (comentado):
-                // apply_palette(reassembly_buf, FRAME_BYTES / 3);
-                // got_frame = 1;
-                */
             }
             else
             {

@@ -26,19 +26,19 @@ typedef struct {
  * - Keyframe interval: cada N frames (configurable)
  * - Sin B-frames para minimizar latencia
  *
- * Reserva el buffer intermedio para conversión RGB → YUV420p.
+ * Reserva el buffer intermedio para conversión grayscale → YUV420p.
  *
  * Returns: 0 en éxito, -1 en error
  */
 int encoder_init(void);
 
 /**
- * encoder_encode_frame - Codifica un frame RGB a H.264
- * @rgb_data: Puntero al buffer de píxeles RGB (FRAME_WIDTH × FRAME_HEIGHT × 3 bytes)
+ * encoder_encode_frame - Codifica un frame grayscale (8-bit indexed) a H.264
+ * @grayscale_data: Puntero al buffer de píxeles grayscale (FRAME_WIDTH × FRAME_HEIGHT bytes)
  * @output: Puntero a estructura donde se retornarán los NAL units producidos
  *
  * Proceso:
- * 1. Convierte el frame RGB a YUV420p (conversión manual o con swscale)
+ * 1. Convierte el frame grayscale a YUV420p (Y=grayscale, U/V=128 neutral)
  * 2. Alimenta el frame a x264_encoder_encode()
  * 3. Retorna los NAL units producidos en la estructura output
  *
@@ -48,7 +48,7 @@ int encoder_init(void);
  *
  * Returns: Número de NAL units producidos, o -1 en error
  */
-int encoder_encode_frame(const uint8_t *rgb_data, encoder_output_t *output);
+int encoder_encode_frame(const uint8_t *grayscale_data, encoder_output_t *output);
 
 /**
  * encoder_shutdown - Finaliza el codificador y libera recursos
