@@ -38,8 +38,8 @@ typedef struct {
 
 // Global ring buffer (shared between threads)
 static RingBufferSlot g_ring_buffer[RING_BUFFER_SIZE];
-static atomic_int g_write_index = ATOMIC_VAR_INIT(0);
-static atomic_int g_read_index = ATOMIC_VAR_INIT(0);
+static atomic_int g_write_index = 0;
+static atomic_int g_read_index = 0;
 
 // Frame counter for sequence tracking
 static uint32_t g_frame_counter = 0;
