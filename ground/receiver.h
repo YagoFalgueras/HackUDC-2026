@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 BFG-I contributors (HackUDC 2026)
+// SPDX-License-Identifier: GPL-2.0-only
 #ifndef RECEIVER_H
 #define RECEIVER_H
 
