@@ -84,6 +84,13 @@ void ringbuffer_shutdown(void) {
  */
 void ringbuffer_update_palette(const uint8_t palette_data[256][3]) {
     memcpy(g_palette_rgb, palette_data, 256 * 3);
+
+    // Debug: print first few colors to verify palette is not grayscale
+    printf("[RINGBUFFER] Palette updated - First 5 colors: ");
+    for (int i = 0; i < 5; i++) {
+        printf("RGB(%d,%d,%d) ", g_palette_rgb[i][0], g_palette_rgb[i][1], g_palette_rgb[i][2]);
+    }
+    printf("\n");
 }
 
 /**

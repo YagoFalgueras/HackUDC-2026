@@ -835,6 +835,7 @@ void I_ReadScreen (pixel_t* scr)
 void I_SetPalette (byte *doompalette)
 {
     int i;
+    uint8_t rgb_palette[256][3];
 
     for (i=0; i<256; ++i)
     {
@@ -845,7 +846,15 @@ void I_SetPalette (byte *doompalette)
         palette[i].r = gammatable[usegamma][*doompalette++] & ~3;
         palette[i].g = gammatable[usegamma][*doompalette++] & ~3;
         palette[i].b = gammatable[usegamma][*doompalette++] & ~3;
+
+        // Prepare RGB palette for ring buffer
+        rgb_palette[i][0] = palette[i].r;
+        rgb_palette[i][1] = palette[i].g;
+        rgb_palette[i][2] = palette[i].b;
     }
+
+    // Update ring buffer with new palette
+    ringbuffer_update_palette(rgb_palette);
 
     palette_to_set = true;
 }
@@ -1465,6 +1474,10 @@ void I_InitGraphics(void)
 
     SDL_FillRect(screenbuffer, NULL, 0);
 
+    // Initialize ring buffer for frame transmission BEFORE setting palette
+    // so that ringbuffer_update_palette() works correctly
+    ringbuffer_init();
+
     // Set the palette
 
     doompal = W_CacheLumpName(DEH_String("PLAYPAL"), PU_CACHE);
@@ -1501,9 +1514,6 @@ void I_InitGraphics(void)
     while (SDL_PollEvent(&dummy));
 
     initialized = true;
-
-    // Initialize ring buffer for frame transmission
-    ringbuffer_init();
 
     // Call I_ShutdownGraphics on quit
 

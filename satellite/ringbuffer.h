@@ -67,6 +67,19 @@ void ringbuffer_init(void);
 void ringbuffer_shutdown(void);
 
 /**
+ * @brief Update the RGB palette used for indexed→RGB conversion
+ *
+ * This function should be called from I_SetPalette() whenever DOOM updates
+ * its color palette (on startup, powerups, damage, etc.)
+ *
+ * @param palette_data Array of 256 RGB triplets [256][3]
+ *
+ * @note Thread-safe: palette update is atomic
+ * @note Must be called before frames are written to get correct colors
+ */
+void ringbuffer_update_palette(const uint8_t palette_data[256][3]);
+
+/**
  * @brief Read a frame from the ring buffer
  *
  * This function is called from the encoder thread to retrieve rendered frames.
