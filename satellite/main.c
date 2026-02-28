@@ -134,7 +134,7 @@ void* doom_thread_func() {
     static char *doom_argv[8];
     doom_argv[0] = strdup("doom-satellite");
     doom_argv[1] = strdup("-iwad");
-    doom_argv[2] = strdup("/home/kaox/Documentos/5ºGrao/2ºCuatri/hackudc/HackUDC-2026/freedoom1.wad");
+    doom_argv[2] = strdup("./freedoom1.wad");
     doom_argv[3] = strdup("-window");
     doom_argv[4] = strdup("-nogui");
     doom_argv[5] = strdup("-nomusic");
