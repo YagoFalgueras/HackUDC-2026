@@ -41,6 +41,7 @@
 #include "w_wad.h"
 #include "z_zone.h"
 #include "../../ringbuffer.h"
+#include "../../uplink.h"
 
 // These are (1) the window (or the full screen) that our game is rendered to
 // and (2) the renderer that scales the texture (see below) into this window.

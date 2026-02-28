@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Start satellite in background
-./doom-sat 127.0.0.1 5000 5001 &
+./doom-satellite 127.0.0.1 5000 5001 &
 SAT_PID=$!
 
 # Start ground station

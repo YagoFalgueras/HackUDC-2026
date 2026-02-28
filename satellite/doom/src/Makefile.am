@@ -123,7 +123,9 @@ w_merge.c            w_merge.h             \
 $(top_builddir)/win32/win_opendir.c        \
 $(top_builddir)/win32/win_opendir.h        \
 $(top_srcdir)/../ringbuffer.c              \
-$(top_srcdir)/../ringbuffer.h
+$(top_srcdir)/../ringbuffer.h              \
+$(top_srcdir)/../uplink.c                  \
+$(top_srcdir)/../uplink.h
 
 
 MEMORY_NATIVE_SOURCE_FILES=\
