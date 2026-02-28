@@ -119,11 +119,11 @@ int main(int argc, char *argv[])
             g_running = 0;
 
         const uint8_t *frame = receiver_poll();
-        
+
         if (frame){
             printf("[GROUND] Pasando un frame!");
             display_present_frame(frame);
-        }      
+        }
         else
             SDL_Delay(1);
     }

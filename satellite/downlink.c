@@ -20,7 +20,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <sys/time.h>
 #endif
 
 #define DEFAULT_DEST_IP   "127.0.0.1"

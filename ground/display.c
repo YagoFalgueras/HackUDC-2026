@@ -1,11 +1,14 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "display.h"
 
 #include <stdio.h>
 
 #include <SDL2/SDL.h>
 
-#define SAT_SCREEN_WIDTH   176
-#define SAT_SCREEN_HEIGHT  144
+#include "../common/include/protocol.h"
+
+
 #define WINDOW_SCALE       3
 
 static SDL_Window   *window   = NULL;
@@ -23,8 +26,8 @@ int display_init(void)
     window = SDL_CreateWindow(
         "UAC Orbital Relay - Ground Control",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        SAT_SCREEN_WIDTH  * WINDOW_SCALE,
-        SAT_SCREEN_HEIGHT * WINDOW_SCALE,
+        FRAME_WIDTH * WINDOW_SCALE,
+        FRAME_HEIGHT * WINDOW_SCALE,
         SDL_WINDOW_SHOWN
     );
     if (!window)
@@ -52,7 +55,7 @@ int display_init(void)
         renderer,
         SDL_PIXELFORMAT_RGB24,
         SDL_TEXTUREACCESS_STREAMING,
-        SAT_SCREEN_WIDTH, SAT_SCREEN_HEIGHT
+        FRAME_WIDTH, FRAME_HEIGHT
     );
     if (!texture)
     {
@@ -72,7 +75,7 @@ int display_init(void)
 
 void display_present_frame(const uint8_t *rgb_buffer)
 {
-    SDL_UpdateTexture(texture, NULL, rgb_buffer, SAT_SCREEN_WIDTH * 3);
+    SDL_UpdateTexture(texture, NULL, rgb_buffer, FRAME_WIDTH * 3);
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);

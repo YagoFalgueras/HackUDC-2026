@@ -26,7 +26,7 @@
 #include <signal.h>
 #include <time.h>
 
-#include "protocol.h"
+#include "../common/include/protocol.h"
 #include "encoder.h"
 #include "downlink.h"
 #include "uplink.h"

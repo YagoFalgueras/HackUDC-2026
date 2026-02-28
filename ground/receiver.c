@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include "receiver.h"
 
 #include <stdio.h>
@@ -17,12 +19,11 @@
 #include <libavutil/imgutils.h>
 #include <libswscale/swscale.h>
 
-/* ---------- constantes ---------- */
+#include "../common/include/protocol.h"
 
-#define SCREEN_WIDTH   176
-#define SCREEN_HEIGHT  144
-#define FRAME_BYTES    (SCREEN_WIDTH * SCREEN_HEIGHT)       /* 176*144 = 25344 pixels */
-#define RGB_BUF_SIZE   (SCREEN_WIDTH * SCREEN_HEIGHT * 3)   /* RGB output: 176*144*3 = 75888 bytes */
+/* ---------- constantes ---------- */
+#define FRAME_BYTES    (FRAME_WIDTH * FRAME_HEIGHT)       /* 176*144 = 25344 pixels */
+#define RGB_BUF_SIZE   (FRAME_WIDTH * FRAME_HEIGHT * 3)   /* RGB output: 176*144*3 = 75888 bytes */
 
 #define UDP_BUF_SIZE   25344
 
@@ -106,7 +107,7 @@ static int decode_frame_to_rgb(void)
     if (!sws_ctx) {
         sws_ctx = sws_getContext(
             av_frame->width, av_frame->height, AV_PIX_FMT_YUV420P,
-            SCREEN_WIDTH, SCREEN_HEIGHT, AV_PIX_FMT_RGB24,
+            FRAME_WIDTH, FRAME_HEIGHT, AV_PIX_FMT_RGB24,
             SWS_BILINEAR, NULL, NULL, NULL
         );
         if (!sws_ctx) {
@@ -116,11 +117,11 @@ static int decode_frame_to_rgb(void)
     }
 
     // Si la resolución del frame decodificado cambió, recrear sws_ctx
-    if (sws_ctx && (av_frame->width != SCREEN_WIDTH || av_frame->height != SCREEN_HEIGHT)) {
+    if (sws_ctx && (av_frame->width != FRAME_WIDTH || av_frame->height != FRAME_HEIGHT)) {
         sws_freeContext(sws_ctx);
         sws_ctx = sws_getContext(
             av_frame->width, av_frame->height, AV_PIX_FMT_YUV420P,
-            SCREEN_WIDTH, SCREEN_HEIGHT, AV_PIX_FMT_RGB24,
+            FRAME_WIDTH, FRAME_HEIGHT, AV_PIX_FMT_RGB24,
             SWS_BILINEAR, NULL, NULL, NULL
         );
         if (!sws_ctx) {
@@ -131,7 +132,7 @@ static int decode_frame_to_rgb(void)
 
     // Convertir YUV420p → RGB888
     uint8_t *dest[4] = { rgb_buffer, NULL, NULL, NULL };
-    int dest_linesize[4] = { SCREEN_WIDTH * 3, 0, 0, 0 };
+    int dest_linesize[4] = { FRAME_WIDTH * 3, 0, 0, 0 };
 
     sws_scale(sws_ctx,
               (const uint8_t * const*)av_frame->data,
@@ -222,7 +223,7 @@ int receiver_init(int listen_port)
 
     fprintf(stderr, "receiver_init: escuchando en puerto %d  "
             "(%dx%d H.264 → RGB888, %d pixels por frame)\n",
-            listen_port, SCREEN_WIDTH, SCREEN_HEIGHT, FRAME_BYTES);
+            listen_port, FRAME_WIDTH, FRAME_HEIGHT, FRAME_BYTES);
     return 0;
 }
 

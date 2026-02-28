@@ -1,5 +1,5 @@
 #include "encoder.h"
-#include "protocol.h"
+#include "../common/include/protocol.h"
 #include <x264.h>
 #include <stdio.h>
 #include <stdlib.h>

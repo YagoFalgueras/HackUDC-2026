@@ -14,7 +14,7 @@
 #include <stdint.h>
 
 #include "ringbuffer.h"
-#include "protocol.h"
+#include "../common/include/protocol.h"
 
 /**
  * Ring Buffer Structure
