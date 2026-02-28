@@ -14,10 +14,10 @@
 
 /* ---------- constantes ---------- */
 
-#define SCREEN_WIDTH   320
-#define SCREEN_HEIGHT  200
-#define FRAME_BYTES    (SCREEN_WIDTH * SCREEN_HEIGHT)   /* 64000 bytes indexados */
-#define RGB_BUF_SIZE   (FRAME_BYTES * 3)
+#define SCREEN_WIDTH   176
+#define SCREEN_HEIGHT  144
+#define FRAME_BYTES    (SCREEN_WIDTH * SCREEN_HEIGHT * 3)   /* RGB raw: 176*144*3 = 75888 bytes */
+#define RGB_BUF_SIZE   (FRAME_BYTES)
 
 /* Máximo payload por paquete UDP (MTU 1500 - IP 20 - UDP 8 - RTP 12 = 1460) */
 #define MAX_PAYLOAD    1460
@@ -85,18 +85,19 @@ static int unpack_rtp_header(const uint8_t *buf, int len, rtp_header_t *hdr)
 }
 
 /**
- * Aplica doom_palette sobre el frame indexado y escribe en rgb_buffer.
+ * COMENTADO: Aplica doom_palette sobre el frame indexado y escribe en rgb_buffer.
+ * Ya no es necesario porque recibimos RGB raw directamente del satélite.
  */
-static void apply_palette(const uint8_t *indexed, int len)
-{
-    for (int i = 0; i < len; i++)
-    {
-        uint8_t idx = indexed[i];
-        rgb_buffer[i * 3 + 0] = doom_palette[idx][0];
-        rgb_buffer[i * 3 + 1] = doom_palette[idx][1];
-        rgb_buffer[i * 3 + 2] = doom_palette[idx][2];
-    }
-}
+// static void apply_palette(const uint8_t *indexed, int len)
+// {
+//     for (int i = 0; i < len; i++)
+//     {
+//         uint8_t idx = indexed[i];
+//         rgb_buffer[i * 3 + 0] = doom_palette[idx][0];
+//         rgb_buffer[i * 3 + 1] = doom_palette[idx][1];
+//         rgb_buffer[i * 3 + 2] = doom_palette[idx][2];
+//     }
+// }
 
 /* ------------------------------------------------------------------ */
 /*  API pública                                                        */
@@ -153,7 +154,8 @@ int receiver_init(int listen_port)
     reassembly_ts  = 0;
 
     fprintf(stderr, "receiver_init: escuchando en puerto %d  "
-            "(%dx%d raw + paleta)\n", listen_port, SCREEN_WIDTH, SCREEN_HEIGHT);
+            "(%dx%d RGB raw, %d bytes por frame)\n",
+            listen_port, SCREEN_WIDTH, SCREEN_HEIGHT, FRAME_BYTES);
     return 0;
 }
 
@@ -216,8 +218,14 @@ const uint8_t *receiver_poll(void)
         {
             if (reassembly_len == FRAME_BYTES)
             {
-                apply_palette(reassembly_buf, FRAME_BYTES);
+                /* MODO RGB RAW: copiar directamente sin aplicar paleta */
+                memcpy(rgb_buffer, reassembly_buf, FRAME_BYTES);
                 got_frame = 1;
+
+                /* MODO INDEXADO (comentado):
+                // apply_palette(reassembly_buf, FRAME_BYTES / 3);
+                // got_frame = 1;
+                */
             }
             else
             {

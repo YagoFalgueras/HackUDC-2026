@@ -4,8 +4,8 @@
 
 #include <SDL2/SDL.h>
 
-#define SAT_SCREEN_WIDTH   320
-#define SAT_SCREEN_HEIGHT  200
+#define SAT_SCREEN_WIDTH   176
+#define SAT_SCREEN_HEIGHT  144
 #define WINDOW_SCALE       3
 
 static SDL_Window   *window   = NULL;
