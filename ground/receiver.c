@@ -2,34 +2,128 @@
 #include "doom_palette.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 
-#define SAT_SCREEN_WIDTH   320
-#define SAT_SCREEN_HEIGHT  200
-#define SAT_FRAME_BYTES    (SAT_SCREEN_WIDTH * SAT_SCREEN_HEIGHT)
+/* ---------- constantes ---------- */
 
-static int udp_socket = -1;
+#define SCREEN_WIDTH   320
+#define SCREEN_HEIGHT  200
+#define FRAME_BYTES    (SCREEN_WIDTH * SCREEN_HEIGHT)   /* 64000 bytes indexados */
+#define RGB_BUF_SIZE   (FRAME_BYTES * 3)
 
-static unsigned char recv_buffer[SAT_FRAME_BYTES];
-static unsigned char rgb_buffer[SAT_FRAME_BYTES * 3];
+/* Máximo payload por paquete UDP (MTU 1500 - IP 20 - UDP 8 - RTP 12 = 1460) */
+#define MAX_PAYLOAD    1460
+#define UDP_BUF_SIZE   2048
+
+/* ---------- RTP header (12 bytes fijos, RFC 3550) ---------- */
+
+typedef struct {
+    uint8_t  version;
+    uint8_t  padding;
+    uint8_t  extension;
+    uint8_t  cc;
+    uint8_t  marker;       /* 1 en el último fragmento del frame */
+    uint8_t  payload_type;
+    uint16_t seq;
+    uint32_t timestamp;
+    uint32_t ssrc;
+} rtp_header_t;
+
+/* ---------- estado del módulo ---------- */
+
+static int udp_fd = -1;
+
+/* Buffer de reensamblaje: acumula fragmentos hasta completar un frame */
+static uint8_t *reassembly_buf = NULL;
+static int      reassembly_len = 0;
+static uint32_t reassembly_ts  = 0;   /* timestamp del frame en construcción */
+
+/* Buffer de salida RGB */
+static uint8_t *rgb_buffer = NULL;
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+static int unpack_rtp_header(const uint8_t *buf, int len, rtp_header_t *hdr)
+{
+    if (len < 12)
+        return -1;
+
+    hdr->version      = (buf[0] >> 6) & 0x03;
+    hdr->padding      = (buf[0] >> 5) & 0x01;
+    hdr->extension    = (buf[0] >> 4) & 0x01;
+    hdr->cc           = buf[0] & 0x0F;
+    hdr->marker       = (buf[1] >> 7) & 0x01;
+    hdr->payload_type = buf[1] & 0x7F;
+    hdr->seq          = (uint16_t)(buf[2] << 8) | buf[3];
+    hdr->timestamp    = (uint32_t)(buf[4] << 24) | (buf[5] << 16) |
+                        (buf[6] << 8)  | buf[7];
+    hdr->ssrc         = (uint32_t)(buf[8] << 24) | (buf[9] << 16) |
+                        (buf[10] << 8) | buf[11];
+
+    int payload_off = 12 + hdr->cc * 4;
+
+    if (hdr->extension)
+    {
+        if (payload_off + 4 > len)
+            return -1;
+        uint16_t ext_len = (uint16_t)(buf[payload_off + 2] << 8) |
+                           buf[payload_off + 3];
+        payload_off += 4 + ext_len * 4;
+    }
+
+    return (payload_off <= len) ? payload_off : -1;
+}
+
+/**
+ * Aplica doom_palette sobre el frame indexado y escribe en rgb_buffer.
+ */
+static void apply_palette(const uint8_t *indexed, int len)
+{
+    for (int i = 0; i < len; i++)
+    {
+        uint8_t idx = indexed[i];
+        rgb_buffer[i * 3 + 0] = doom_palette[idx][0];
+        rgb_buffer[i * 3 + 1] = doom_palette[idx][1];
+        rgb_buffer[i * 3 + 2] = doom_palette[idx][2];
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/*  API pública                                                        */
+/* ------------------------------------------------------------------ */
 
 int receiver_init(int listen_port)
 {
-    udp_socket = socket(AF_INET, SOCK_DGRAM, 0);
-    if (udp_socket < 0)
+    /* Socket UDP */
+    udp_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (udp_fd < 0)
     {
-        fprintf(stderr, "receiver_init: error creando socket UDP: %s\n", strerror(errno));
+        fprintf(stderr, "receiver_init: socket(): %s\n", strerror(errno));
         return -1;
     }
 
     int optval = 1;
-    setsockopt(udp_socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+    setsockopt(udp_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+
+    /* Non-blocking */
+    int flags = fcntl(udp_fd, F_GETFL, 0);
+    if (flags < 0 || fcntl(udp_fd, F_SETFL, flags | O_NONBLOCK) < 0)
+    {
+        fprintf(stderr, "receiver_init: fcntl O_NONBLOCK: %s\n", strerror(errno));
+        close(udp_fd);
+        udp_fd = -1;
+        return -1;
+    }
 
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
@@ -37,54 +131,119 @@ int receiver_init(int listen_port)
     addr.sin_port        = htons(listen_port);
     addr.sin_addr.s_addr = INADDR_ANY;
 
-    if (bind(udp_socket, (struct sockaddr *)&addr, sizeof(addr)) < 0)
+    if (bind(udp_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0)
     {
-        fprintf(stderr, "receiver_init: error en bind :%d: %s\n",
+        fprintf(stderr, "receiver_init: bind(:%d): %s\n",
                 listen_port, strerror(errno));
-        close(udp_socket);
-        udp_socket = -1;
+        close(udp_fd);
+        udp_fd = -1;
         return -1;
     }
 
-    fprintf(stderr, "receiver_init: escuchando en puerto %d\n", listen_port);
+    /* Buffers */
+    reassembly_buf = malloc(FRAME_BYTES);
+    rgb_buffer     = malloc(RGB_BUF_SIZE);
+    if (!reassembly_buf || !rgb_buffer)
+    {
+        fprintf(stderr, "receiver_init: malloc falló\n");
+        receiver_shutdown();
+        return -1;
+    }
+    reassembly_len = 0;
+    reassembly_ts  = 0;
+
+    fprintf(stderr, "receiver_init: escuchando en puerto %d  "
+            "(%dx%d raw + paleta)\n", listen_port, SCREEN_WIDTH, SCREEN_HEIGHT);
     return 0;
 }
 
 const uint8_t *receiver_poll(void)
 {
-    struct sockaddr_in sender;
-    socklen_t sender_len = sizeof(sender);
+    uint8_t udp_buf[UDP_BUF_SIZE];
+    int got_frame = 0;
 
-    ssize_t bytes = recvfrom(udp_socket, recv_buffer, sizeof(recv_buffer),
-                             MSG_DONTWAIT,
-                             (struct sockaddr *)&sender, &sender_len);
-
-    if (bytes == SAT_FRAME_BYTES)
+    for (;;)
     {
-        for (int i = 0; i < SAT_FRAME_BYTES; i++)
+        struct sockaddr_in sender;
+        socklen_t sender_len = sizeof(sender);
+
+        ssize_t bytes = recvfrom(udp_fd, udp_buf, sizeof(udp_buf),
+                                 MSG_DONTWAIT,
+                                 (struct sockaddr *)&sender, &sender_len);
+
+        if (bytes <= 0)
         {
-            unsigned char idx = recv_buffer[i];
-            rgb_buffer[i * 3 + 0] = doom_palette[idx][0];
-            rgb_buffer[i * 3 + 1] = doom_palette[idx][1];
-            rgb_buffer[i * 3 + 2] = doom_palette[idx][2];
+            if (bytes < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
+                fprintf(stderr, "receiver_poll: recvfrom: %s\n",
+                        strerror(errno));
+            break;
         }
-        return rgb_buffer;
+
+        /* Parsear header RTP */
+        rtp_header_t rtp;
+        int payload_off = unpack_rtp_header(udp_buf, (int)bytes, &rtp);
+        if (payload_off < 0 || rtp.version != 2)
+            continue;
+
+        const uint8_t *payload     = udp_buf + payload_off;
+        int            payload_len = (int)bytes - payload_off;
+        if (payload_len <= 0)
+            continue;
+
+        /* Si cambia el timestamp, empezar un frame nuevo */
+        if (rtp.timestamp != reassembly_ts)
+        {
+            reassembly_len = 0;
+            reassembly_ts  = rtp.timestamp;
+        }
+
+        /* Acumular payload en el buffer de reensamblaje */
+        if (reassembly_len + payload_len <= FRAME_BYTES)
+        {
+            memcpy(reassembly_buf + reassembly_len, payload, payload_len);
+            reassembly_len += payload_len;
+        }
+        else
+        {
+            fprintf(stderr, "receiver_poll: frame excede %d bytes, descartando\n",
+                    FRAME_BYTES);
+            reassembly_len = 0;
+            continue;
+        }
+
+        /* Marker bit = último fragmento del frame */
+        if (rtp.marker)
+        {
+            if (reassembly_len == FRAME_BYTES)
+            {
+                apply_palette(reassembly_buf, FRAME_BYTES);
+                got_frame = 1;
+            }
+            else
+            {
+                fprintf(stderr, "receiver_poll: frame incompleto: %d/%d bytes\n",
+                        reassembly_len, FRAME_BYTES);
+            }
+            reassembly_len = 0;
+        }
     }
 
-    if (bytes > 0)
-        fprintf(stderr, "receiver_poll: frame parcial: %zd bytes (esperados %d)\n",
-                bytes, SAT_FRAME_BYTES);
-    else if (bytes < 0 && errno != EAGAIN && errno != EWOULDBLOCK)
-        fprintf(stderr, "receiver_poll: error en recvfrom: %s\n", strerror(errno));
-
-    return NULL;
+    return got_frame ? rgb_buffer : NULL;
 }
 
 void receiver_shutdown(void)
 {
-    if (udp_socket >= 0)
+    if (udp_fd >= 0)
     {
-        close(udp_socket);
-        udp_socket = -1;
+        close(udp_fd);
+        udp_fd = -1;
     }
+
+    free(reassembly_buf);
+    reassembly_buf = NULL;
+    free(rgb_buffer);
+    rgb_buffer     = NULL;
+
+    reassembly_len = 0;
+    reassembly_ts  = 0;
 }
