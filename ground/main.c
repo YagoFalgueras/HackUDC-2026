@@ -40,18 +40,19 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    if (input_init("127.0.0.1", 9667) < 0)
+    {
+        receiver_shutdown();
+        display_shutdown();
+        return 1;
+    }
+
     fprintf(stderr, "Esperando frames del satélite...\n");
 
     while (g_running)
     {
-        SDL_Event event;
-        while (SDL_PollEvent(&event))
-        {
-            if (event.type == SDL_QUIT)
-                g_running = 0;
-            if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE)
-                g_running = 0;
-        }
+        if (input_poll())
+            g_running = 0;
 
         const uint8_t *frame = receiver_poll();
         if (frame)
@@ -61,6 +62,7 @@ int main(int argc, char *argv[])
     }
 
     fprintf(stderr, "\nCerrando ground station...\n");
+    input_shutdown();
     receiver_shutdown();
     display_shutdown();
 

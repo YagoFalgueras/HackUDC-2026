@@ -430,12 +430,12 @@ void I_GetEvent(void)
                 if (ToggleFullScreenKeyShortcut(&sdlevent.key.keysym))
                 {
                     I_ToggleFullScreen();
-                    break;
                 }
-                // deliberate fall-though
+                /* Input comes from UDP uplink — ignore native keyboard */
+                break;
 
             case SDL_KEYUP:
-		I_HandleKeyboardEvent(&sdlevent);
+                /* Input comes from UDP uplink — ignore native keyboard */
                 break;
 
             case SDL_MOUSEBUTTONDOWN:
@@ -469,6 +469,24 @@ void I_GetEvent(void)
 
             default:
                 break;
+        }
+    }
+
+    /* Procesar input recibido por UDP desde la estación terrestre */
+    {
+        uint16_t ukey;
+        boolean  upressed;
+        event_t  uev;
+
+        uplink_poll();
+
+        while (uplink_pop_key(&ukey, (bool *)&upressed))
+        {
+            uev.type  = upressed ? ev_keydown : ev_keyup;
+            uev.data1 = (int)ukey;
+            uev.data2 = upressed ? (int)ukey : 0;
+            uev.data3 = 0;
+            D_PostEvent(&uev);
         }
     }
 }
