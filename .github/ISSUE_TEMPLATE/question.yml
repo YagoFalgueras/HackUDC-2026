@@ -1,0 +1,49 @@
+name: Question
+description: Ask something about the code, the design, or the project.
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Questions are welcome. Keep in mind that we are students — responses
+        may take a few weeks during term time. See [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Architecture / design decisions
+        - Building or cross-compiling
+        - Running / deployment
+        - Network protocol or RTP details
+        - H.264 encoding parameters
+        - Chocolate Doom integration
+        - License or compliance
+        - Contributing process
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: >
+        Be as specific as possible. Include relevant context such as what you
+        were trying to do and what you have already tried or read.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: >
+            I checked the [README](../README.md),
+            [CONTRIBUTING.md](../CONTRIBUTING.md), and the
+            [docs/](../docs/) folder and did not find an answer.
+          required: true
+        - label: I searched existing issues and this has not been asked before.
+          required: true

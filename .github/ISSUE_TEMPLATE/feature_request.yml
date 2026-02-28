@@ -1,0 +1,75 @@
+name: Feature request
+description: Propose a new capability or an improvement to an existing one.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the suggestion. Before opening this issue, please read
+        [CONTRIBUTING.md](../CONTRIBUTING.md) — especially the section on
+        response times. We are students and reviews may take a while.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      description: Which part of BFG-I would this change?
+      options:
+        - Satellite (encoder, downlink, ring buffer, DOOM integration)
+        - Ground station (receiver, display, input)
+        - Protocol / wire format
+        - Build system (Makefile, autogen)
+        - Documentation
+        - Other / unsure
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: >
+        Describe the limitation or pain point this would address.
+        "I want X" is less useful than "I cannot do Y, which means Z."
+      placeholder: |
+        Currently the satellite binary has the WAD path hardcoded. If I want
+        to run it with a different IWAD (e.g., doom2.wad), I have to recompile.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: >
+        What would you like to see added or changed?
+        Be as specific as you can about the interface or behaviour.
+      placeholder: |
+        Add a CLI flag (-iwad <path>) that overrides the hardcoded path,
+        consistent with how Chocolate Doom itself handles this argument.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: >
+        Did you consider other approaches? Why are they less suitable?
+
+  - type: checkboxes
+    id: license
+    attributes:
+      label: License and scope
+      options:
+        - label: >
+            I understand that any implementation of this feature must be
+            licensed under GPL-2.0-only to be accepted into BFG-I.
+          required: true
+        - label: >
+            I have checked that this does not require a dependency with a
+            license incompatible with GPL-2.0-only (see
+            [docs/COMPONENTS_LICENSE.md](../docs/COMPONENTS_LICENSE.md)).
+          required: true
+        - label: I searched existing issues and this has not been proposed before.
+          required: true

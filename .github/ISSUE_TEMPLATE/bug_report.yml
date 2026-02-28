@@ -1,0 +1,95 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug.
+
+        > **Security vulnerability?** Do not use this form.
+        > Follow the process in [SECURITY.md](../SECURITY.md) instead.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      description: Which part of BFG-I is affected?
+      options:
+        - Satellite (encoder, downlink, ring buffer, DOOM integration)
+        - Ground station (receiver, display, input)
+        - Protocol / wire format
+        - Build system (Makefile, autogen)
+        - Documentation
+        - Other / unsure
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: >
+        A clear description of the bug. What did you observe?
+        What did you expect instead?
+      placeholder: |
+        When I run ./doom-ground and ./doom-satellite on the same machine,
+        the ground station window opens but no frames appear. The satellite
+        terminal shows [ENCODER THREAD] loop messages at 20 FPS but the
+        ground terminal prints nothing after the first "waiting for frames" line.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps that reliably trigger the bug.
+      placeholder: |
+        1. Build both binaries with `make`
+        2. Run `./doom-ground` in terminal 1
+        3. Run `./doom-satellite` in terminal 2
+        4. Observe: no video appears after 10 seconds
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: >
+        OS, distribution, kernel version, compiler version, and library
+        versions relevant to the bug.
+      placeholder: |
+        OS: Ubuntu 24.04 LTS
+        Kernel: 6.8.0-94-generic
+        GCC: 13.2.0
+        libx264: 0.164
+        FFmpeg (libavcodec): 6.1.1
+        SDL2: 2.30.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output or logs
+      description: >
+        Paste any terminal output, error messages, or stderr logs.
+        Wrap long output in a `<details>` block if needed.
+      render: shell
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and this has not been reported before.
+          required: true
+        - label: >
+            This is not a security vulnerability. If it is, I will use
+            [GitHub private vulnerability reporting](../security/advisories/new)
+            as described in [SECURITY.md](../SECURITY.md).
+          required: true
+        - label: I can reproduce this bug on the current `main` branch.
+          required: true

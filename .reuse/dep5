@@ -1,0 +1,77 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: BFG-I
+Upstream-Contact: HackUDC 2026 contributors
+Source: https://github.com/hackudc/HackUDC-2026
+
+# ---------------------------------------------------------------------------
+# BFG-I original source code
+# ---------------------------------------------------------------------------
+
+Files: satellite/main.c
+       satellite/encoder.h
+       satellite/encoder.c
+       satellite/downlink.h
+       satellite/downlink.c
+       satellite/uplink.h
+       satellite/uplink.c
+       satellite/ringbuffer.h
+       satellite/ringbuffer.c
+       ground/main.c
+       ground/display.h
+       ground/display.c
+       ground/receiver.h
+       ground/receiver.c
+       ground/input.h
+       ground/input.c
+       ground/doom_palette.h
+       common/include/protocol.h
+Copyright: 2026 BFG-I contributors (HackUDC 2026)
+License: GPL-2.0-only
+
+# ---------------------------------------------------------------------------
+# Build system and project configuration
+# ---------------------------------------------------------------------------
+
+Files: Makefile
+       CMakeLists.txt
+       .gitmodules
+Copyright: 2026 BFG-I contributors (HackUDC 2026)
+License: GPL-2.0-only
+
+# ---------------------------------------------------------------------------
+# Documentation
+# ---------------------------------------------------------------------------
+
+Files: README.md
+       docs/PROTOCOL_SPEC.md
+       docs/DEPLOYMENT.md
+       docs/LATENCY_ANALYSIS.md
+       docs/ENCODING_GUIDE.md
+       docs/INTERFACES.md
+       docs/PROJECT_STRUCTURE.md
+       docs/MAKEFILE.md
+       docs/COMPONENTS_LICENSE.md
+Copyright: 2026 BFG-I contributors (HackUDC 2026)
+License: GPL-2.0-only
+
+# ---------------------------------------------------------------------------
+# Chocolate Doom (modified for headless satellite operation)
+# Upstream: https://github.com/chocolate-doom/chocolate-doom
+# ---------------------------------------------------------------------------
+
+Files: satellite/doom/*
+Copyright: 1993-2025 Simon Howard and contributors
+           2002-2004 The DOSBox Team (textscreen/fonts/normal.png)
+           1999 Thomas A. Fine (textscreen/fonts/small.png, Atari-Small font)
+           2005-2016 Simon Howard (textscreen/fonts/large.png, small.png modifications)
+           Chris Metcalf (data/chocolate-doom.png icon, used with permission)
+License: GPL-2.0-only
+
+# ---------------------------------------------------------------------------
+# quickcheck submodule (Chocolate Doom test infrastructure)
+# Upstream: https://github.com/chocolate-doom/quickcheck
+# ---------------------------------------------------------------------------
+
+Files: quickcheck/*
+Copyright: 2005-2025 Simon Howard and contributors
+License: GPL-2.0-only

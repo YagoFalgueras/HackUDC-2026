@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/hackudc/BFG-I/security/advisories/new
+    about: >
+      Do NOT open a public issue for security vulnerabilities.
+      Use GitHub private vulnerability reporting instead.
+      See SECURITY.md for the full process.
+  - name: Code of Conduct report
+    url: mailto:carlos.cao@rai.usc.es,yago.falgueras@rai.usc.es,ignacio.garbayo@rai.usc.es
+    about: >
+      Report a Code of Conduct violation privately by emailing the maintainers.
+      See CODE_OF_CONDUCT.md for enforcement guidelines.
