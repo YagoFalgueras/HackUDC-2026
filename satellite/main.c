@@ -226,46 +226,46 @@ void* encoder_thread_func(void* arg) {
             // TEMPORAL: Enviar frame raw directamente sin encoding H.264
             // =========================================================================
             // El buffer contiene grayscale de 176x144 bytes del ringbuffer
-            size_t frame_size = FRAME_WIDTH * FRAME_HEIGHT;
-            int bytes_sent = downlink_send_raw_frame(frame_buffer, frame_size);
+            // size_t frame_size = FRAME_WIDTH * FRAME_HEIGHT;
+            // int bytes_sent = downlink_send_raw_frame(frame_buffer, frame_size);
 
-            if (bytes_sent > 0) {
-                frames_encoded++;
+            // if (bytes_sent > 0) {
+            //     frames_encoded++;
 
-                // Log periódico cada 5 segundos (100 frames @ 20 FPS)
-                if (frames_encoded % 100 == 0) {
-                    printf("[ENCODER THREAD] Frames raw sent: %u, dropped: %u\n",
-                           frames_encoded, frames_dropped);
-                }
-            } else {
-                fprintf(stderr, "[ENCODER THREAD] Error al enviar frame raw %u\n", frame_num);
-            }
+            //     // Log periódico cada 5 segundos (100 frames @ 20 FPS)
+            //     if (frames_encoded % 100 == 0) {
+            //         printf("[ENCODER THREAD] Frames raw sent: %u, dropped: %u\n",
+            //                frames_encoded, frames_dropped);
+            //     }
+            // } else {
+            //     fprintf(stderr, "[ENCODER THREAD] Error al enviar frame raw %u\n", frame_num);
+            // }
 
             // =========================================================================
             // CÓDIGO ORIGINAL CON ENCODING H.264 (comentado temporalmente):
             // =========================================================================
-            // // Encodear frame RGB → H.264 NAL units
-            // encoder_output_t output;
-            // int num_nals = encoder_encode_frame(frame_buffer, &output);
-            //
-            // if (num_nals > 0) {
-            //     // Transmitir los NAL units por downlink
-            //     // El timestamp RTP se calcula en unidades de 90 kHz (estándar H.264)
-            //     // frame_num * (90000 / 20) = frame_num * 4500 ticks por frame @ 20 FPS
-            //     uint32_t rtp_timestamp = frame_num * 4500;
-            //
-            //     downlink_send_nals(output.nals, output.nal_sizes, output.num_nals, rtp_timestamp);
-            //     frames_encoded++;
-            //
-            //     // Log periódico cada 5 segundos (100 frames @ 20 FPS)
-            //     if (frames_encoded % 100 == 0) {
-            //         printf("[ENCODER THREAD] Frames encoded: %u, dropped: %u\n",
-            //                frames_encoded, frames_dropped);
-            //     }
-            // } else if (num_nals < 0) {
-            //     fprintf(stderr, "[ENCODER THREAD] Error al encodear frame %u\n", frame_num);
-            // }
-            // // num_nals == 0 significa delayed frame, no es error
+            // Encodear frame RGB → H.264 NAL units
+            encoder_output_t output;
+            int num_nals = encoder_encode_frame(frame_buffer, &output);
+            
+            if (num_nals > 0) {
+                // Transmitir los NAL units por downlink
+                // El timestamp RTP se calcula en unidades de 90 kHz (estándar H.264)
+                // frame_num * (90000 / 20) = frame_num * 4500 ticks por frame @ 20 FPS
+                uint32_t rtp_timestamp = frame_num * 4500;
+            
+                downlink_send_nals(output.nals, output.nal_sizes, output.num_nals, rtp_timestamp);
+                frames_encoded++;
+            
+                // Log periódico cada 5 segundos (100 frames @ 20 FPS)
+                if (frames_encoded % 100 == 0) {
+                    printf("[ENCODER THREAD] Frames encoded: %u, dropped: %u\n",
+                           frames_encoded, frames_dropped);
+                }
+            } else if (num_nals < 0) {
+                fprintf(stderr, "[ENCODER THREAD] Error al encodear frame %u\n", frame_num);
+            }
+            // num_nals == 0 significa delayed frame, no es error
         }
 
         // Dormir hasta el siguiente frame (timing preciso a 20 FPS)

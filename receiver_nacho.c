@@ -6,7 +6,6 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <stdatomic.h>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -63,9 +62,6 @@ static AVCodecContext *av_ctx = NULL;
 static AVFrame *av_frame = NULL;
 static AVPacket *av_pkt = NULL;
 static struct SwsContext *sws_ctx = NULL;
-
-/* Contador de bytes recibidos (thread-safe) */
-static _Atomic uint64_t g_bytes_received = 0;
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -163,7 +159,7 @@ int receiver_init(int listen_port)
     reassembly_buf = malloc(FRAME_BYTES);
     rgb_buffer     = malloc(RGB_BUF_SIZE);
     h264_buf       = malloc(200000); /* ample for NAL assembly */
-    if (!reassembly_buf || !rgb_buffer || !h264_buf)
+    if (!reassembly_buf || !rgb_buffer)
     {
         fprintf(stderr, "receiver_init: malloc falló\n");
         receiver_shutdown();
@@ -218,9 +214,6 @@ const uint8_t *receiver_poll(void)
                         strerror(errno));
             break;
         }
-
-        /* Incrementar contador de bytes recibidos */
-        atomic_fetch_add(&g_bytes_received, (uint64_t)bytes);
 
         printf("UDP packet received: %zd bytes\n", bytes);
 
@@ -453,9 +446,4 @@ void receiver_shutdown(void)
 
     reassembly_len = 0;
     reassembly_ts  = 0;
-}
-
-uint64_t receiver_get_bytes_received(void)
-{
-    return atomic_load(&g_bytes_received);
 }
