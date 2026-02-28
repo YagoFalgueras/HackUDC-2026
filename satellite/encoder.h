@@ -6,47 +6,47 @@
 
 /**
  * Estructura que contiene los NAL units producidos por el encoder.
- * Cada NAL unit tiene un puntero a sus datos y su tamaño.
+ * Cada NAL unit tiene un puntero a sus datos y su tamaÃ±o.
  */
 typedef struct {
     uint8_t **nals;        // Array de punteros a NAL units
-    size_t *nal_sizes;     // Array de tamaños de cada NAL unit
-    int num_nals;          // Número de NAL units en este frame
+    size_t *nal_sizes;     // Array de tamaÃ±os de cada NAL unit
+    int num_nals;          // NÃºmero de NAL units en este frame
 } encoder_output_t;
 
 /**
  * encoder_init - Inicializa el codificador H.264 con libx264
  *
- * Configura libx264 con los siguientes parámetros:
- * - preset: ultrafast (mínimo uso de CPU)
+ * Configura libx264 con los siguientes parÃ¡metros:
+ * - preset: ultrafast (mÃ­nimo uso de CPU)
  * - tune: zerolatency (sin lookahead ni buffers)
- * - profile: baseline (sin B-frames, mínima latencia)
- * - Resolución: QCIF (176×144)
- * - Bitrate objetivo: según MAX_BITRATE definido en protocol.h
+ * - profile: baseline (sin B-frames, mÃ­nima latencia)
+ * - ResoluciÃ³n: QCIF (176Ã—144)
+ * - Bitrate objetivo: segÃºn MAX_BITRATE definido en protocol.h
  * - Keyframe interval: cada N frames (configurable)
  * - Sin B-frames para minimizar latencia
  *
- * Reserva el buffer intermedio para conversión RGB ’ YUV420p.
+ * Reserva el buffer intermedio para conversiÃ³n RGB â†’ YUV420p.
  *
- * Returns: 0 en éxito, -1 en error
+ * Returns: 0 en Ã©xito, -1 en error
  */
 int encoder_init(void);
 
 /**
  * encoder_encode_frame - Codifica un frame RGB a H.264
- * @rgb_data: Puntero al buffer de píxeles RGB (FRAME_WIDTH × FRAME_HEIGHT × 3 bytes)
- * @output: Puntero a estructura donde se retornarán los NAL units producidos
+ * @rgb_data: Puntero al buffer de pÃ­xeles RGB (FRAME_WIDTH Ã— FRAME_HEIGHT Ã— 3 bytes)
+ * @output: Puntero a estructura donde se retornarÃ¡n los NAL units producidos
  *
  * Proceso:
- * 1. Convierte el frame RGB a YUV420p (conversión manual o con swscale)
+ * 1. Convierte el frame RGB a YUV420p (conversiÃ³n manual o con swscale)
  * 2. Alimenta el frame a x264_encoder_encode()
  * 3. Retorna los NAL units producidos en la estructura output
  *
- * Nota: Los NAL units retornados son válidos hasta la siguiente llamada a
+ * Nota: Los NAL units retornados son vÃ¡lidos hasta la siguiente llamada a
  * encoder_encode_frame() o encoder_shutdown(). El caller debe procesarlos
  * inmediatamente o copiarlos si necesita retenerlos.
  *
- * Returns: Número de NAL units producidos, o -1 en error
+ * Returns: NÃºmero de NAL units producidos, o -1 en error
  */
 int encoder_encode_frame(const uint8_t *rgb_data, encoder_output_t *output);
 

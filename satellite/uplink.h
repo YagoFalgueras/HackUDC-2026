@@ -8,7 +8,7 @@
  * Estructura que representa un evento de tecla del jugador
  */
 typedef struct {
-    uint16_t key;      // CÛdigo de tecla (keycode interno de DOOM)
+    uint16_t key;      // C√≥digo de tecla (keycode interno de DOOM)
     bool pressed;      // true = tecla presionada, false = tecla liberada
 } key_event_t;
 
@@ -18,12 +18,12 @@ typedef struct {
  *
  * Crea el socket UDP de escucha configurado en modo non-blocking.
  * Vincula el socket al puerto especificado para recibir paquetes de input
- * desde la estaciÛn terrestre.
+ * desde la estaci√≥n terrestre.
  *
  * Inicializa la cola de input thread-safe con su mutex para almacenar
- * eventos de teclas que ser·n consumidos por DG_GetKey() en el game thread.
+ * eventos de teclas que ser√°n consumidos por DG_GetKey() en el game thread.
  *
- * Returns: 0 en Èxito, -1 en error
+ * Returns: 0 en √©xito, -1 en error
  */
 int uplink_init(uint16_t listen_port);
 
@@ -31,7 +31,7 @@ int uplink_init(uint16_t listen_port);
  * uplink_poll - Procesa paquetes de input pendientes
  *
  * Realiza recvfrom() en modo non-blocking para recibir paquetes de input
- * del jugador. Puede procesar m˙ltiples paquetes en una sola llamada si
+ * del jugador. Puede procesar m√∫ltiples paquetes en una sola llamada si
  * hay varios pendientes.
  *
  * Para cada paquete recibido:
@@ -39,33 +39,33 @@ int uplink_init(uint16_t listen_port);
  * 2. Traduce el bitfield del protocolo a eventos de teclas de DOOM
  * 3. Encola los eventos en la cola de input thread-safe
  *
- * DetecciÛn de cambios:
+ * Detecci√≥n de cambios:
  * - Compara el bitfield actual con el anterior
  * - Solo genera eventos para teclas que cambiaron de estado
  * - Genera evento pressed=true para nuevas teclas presionadas
  * - Genera evento pressed=false para teclas liberadas
  *
- * Esta funciÛn debe ser llamada regularmente desde el game thread
- * (ej: una vez por cada iteraciÛn del game loop).
+ * Esta funci√≥n debe ser llamada regularmente desde el game thread
+ * (ej: una vez por cada iteraci√≥n del game loop).
  *
- * Returns: N˙mero de paquetes procesados, 0 si no habÌa ninguno, -1 en error
+ * Returns: N√∫mero de paquetes procesados, 0 si no hab√≠a ninguno, -1 en error
  */
 int uplink_poll(void);
 
 /**
  * uplink_pop_key - Desencola el siguiente evento de tecla
- * @key: Puntero donde se escribir· el cÛdigo de tecla
- * @pressed: Puntero donde se escribir· el estado (presionada/liberada)
+ * @key: Puntero donde se escribir√° el c√≥digo de tecla
+ * @pressed: Puntero donde se escribir√° el estado (presionada/liberada)
  *
  * Desencola el siguiente evento de tecla de la cola thread-safe.
- * Esta funciÛn es llamada por DG_GetKey() desde el game thread.
+ * Esta funci√≥n es llamada por DG_GetKey() desde el game thread.
  *
- * Thread-safety: La cola est· protegida por un mutex interno, por lo
- * que es seguro llamar esta funciÛn desde el game thread mientras
+ * Thread-safety: La cola est√° protegida por un mutex interno, por lo
+ * que es seguro llamar esta funci√≥n desde el game thread mientras
  * uplink_poll() la alimenta potencialmente desde otro contexto.
  *
- * Returns: 1 si se desencolo un evento (key y pressed contienen datos v·lidos),
- *          0 si la cola estaba vacÌa
+ * Returns: 1 si se desencol√≥ un evento (key y pressed contienen datos v√°lidos),
+ *          0 si la cola estaba vac√≠a
  */
 int uplink_pop_key(uint16_t *key, bool *pressed);
 

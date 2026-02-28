@@ -8,32 +8,32 @@
  *
  * Responsabilidades:
  * - Llama a SDL_Init(SDL_INIT_VIDEO)
- * - Crea SDL_Window escalada (ej: 704×576, que es 4x de QCIF 176×144)
- * - Crea SDL_Renderer con flag SDL_RENDERER_PRESENTVSYNC para sincronización
- * - Crea SDL_Texture en formato SDL_PIXELFORMAT_RGB24 con tamaño nativo QCIF (176×144)
+ * - Crea SDL_Window escalada (ej: 704Ã—576, que es 4x de QCIF 176Ã—144)
+ * - Crea SDL_Renderer con flag SDL_RENDERER_PRESENTVSYNC para sincronizaciÃ³n
+ * - Crea SDL_Texture en formato SDL_PIXELFORMAT_RGB24 con tamaÃ±o nativo QCIF (176Ã—144)
  * - Configura SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0") para nearest-neighbor
- *   y preservar la estética pixelada de DOOM
+ *   y preservar la estÃ©tica pixelada de DOOM
  *
  * Retorna:
- *   0 en éxito, -1 en error (escribe error a stderr)
+ *   0 en Ã©xito, -1 en error (escribe error a stderr)
  */
 int display_init(void);
 
 /**
  * Presenta un frame RGB decodificado en la ventana SDL2.
  *
- * Parámetros:
- *   rgb_buffer: Puntero al buffer RGB (176×144×3 bytes, formato RGB24)
+ * ParÃ¡metros:
+ *   rgb_buffer: Puntero al buffer RGB (176Ã—144Ã—3 bytes, formato RGB24)
  *
  * Responsabilidades:
- * - Llama a SDL_UpdateTexture() para subir los píxeles a la textura
+ * - Llama a SDL_UpdateTexture() para subir los pÃ­xeles a la textura
  * - Llama a SDL_RenderClear() para limpiar el renderer
  * - Llama a SDL_RenderCopy() para copiar la textura al renderer
- *   (SDL2 escala automáticamente al tamaño de la ventana)
+ *   (SDL2 escala automÃ¡ticamente al tamaÃ±o de la ventana)
  * - Llama a SDL_RenderPresent() para presentar el frame en pantalla
  *
- * Nota: Esta función debe ser rápida ya que se llama en el loop principal.
- * El VSync está habilitado en el renderer para evitar tearing.
+ * Nota: Esta funciÃ³n debe ser rÃ¡pida ya que se llama en el loop principal.
+ * El VSync estÃ¡ habilitado en el renderer para evitar tearing.
  */
 void display_present_frame(const uint8_t* rgb_buffer);
 
@@ -46,7 +46,7 @@ void display_present_frame(const uint8_t* rgb_buffer);
  * - Destruye la SDL_Window
  * - Llama a SDL_Quit() para finalizar SDL2
  *
- * Debe ser llamada en orden inverso a la inicialización, después de
+ * Debe ser llamada en orden inverso a la inicializaciÃ³n, despuÃ©s de
  * input_shutdown() y receiver_shutdown().
  */
 void display_shutdown(void);

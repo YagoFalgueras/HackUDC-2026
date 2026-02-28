@@ -5,41 +5,41 @@
 #include <stddef.h>
 
 /**
- * downlink_init - Inicializa el transmisor de vídeo por downlink
- * @dest_ip: Dirección IP de la estación terrestre (destino)
- * @dest_port: Puerto UDP de destino para vídeo
+ * downlink_init - Inicializa el transmisor de vÃ­deo por downlink
+ * @dest_ip: DirecciÃ³n IP de la estaciÃ³n terrestre (destino)
+ * @dest_port: Puerto UDP de destino para vÃ­deo
  *
  * Crea el socket UDP de salida y configura la estructura sockaddr_in
- * del destino (estación terrestre). Inicializa el sequence number RTP a 0.
+ * del destino (estaciÃ³n terrestre). Inicializa el sequence number RTP a 0.
  *
- * El socket se configura para envío UDP sin opciones especiales.
+ * El socket se configura para envÃ­o UDP sin opciones especiales.
  *
- * Returns: 0 en éxito, -1 en error
+ * Returns: 0 en Ã©xito, -1 en error
  */
 int downlink_init(const char *dest_ip, uint16_t dest_port);
 
 /**
  * downlink_send_nals - Transmite NAL units H.264 empaquetados en RTP/UDP
  * @nals: Array de punteros a NAL units
- * @nal_sizes: Array de tamaños de cada NAL unit
- * @num_nals: Número de NAL units a transmitir
- * @timestamp: Timestamp RTP del frame (en unidades de 90 kHz típicamente)
+ * @nal_sizes: Array de tamaÃ±os de cada NAL unit
+ * @num_nals: NÃºmero de NAL units a transmitir
+ * @timestamp: Timestamp RTP del frame (en unidades de 90 kHz tÃ­picamente)
  *
  * Para cada NAL unit:
- * - Si el tamaño del NAL d MTU: se envía en un único paquete RTP con
- *   header RTP estándar
- * - Si el tamaño del NAL > MTU: se fragmenta usando FU-A (Fragmentation
- *   Unit type A) en múltiples paquetes RTP
+ * - Si el tamaÃ±o del NAL â‰¤ MTU: se envÃ­a en un Ãºnico paquete RTP con
+ *   header RTP estÃ¡ndar
+ * - Si el tamaÃ±o del NAL > MTU: se fragmenta usando FU-A (Fragmentation
+ *   Unit type A) en mÃºltiples paquetes RTP
  *
- * El último paquete del frame se marca con marker bit = 1 en el header RTP.
+ * El Ãºltimo paquete del frame se marca con marker bit = 1 en el header RTP.
  * El sequence number RTP se incrementa en cada paquete enviado.
  *
- * Fragmentación FU-A:
+ * FragmentaciÃ³n FU-A:
  * - Primer fragmento: FU indicator + FU header (con bit S=1) + payload
  * - Fragmentos intermedios: FU indicator + FU header + payload
- * - Último fragmento: FU indicator + FU header (con bit E=1) + payload
+ * - Ãšltimo fragmento: FU indicator + FU header (con bit E=1) + payload
  *
- * Returns: Número de paquetes RTP enviados, o -1 en error
+ * Returns: NÃºmero de paquetes RTP enviados, o -1 en error
  */
 int downlink_send_nals(uint8_t **nals, size_t *nal_sizes, int num_nals, uint32_t timestamp);
 
