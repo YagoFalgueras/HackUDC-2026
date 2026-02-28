@@ -38,6 +38,9 @@ static uint16_t          g_bitfield      = 0;
 static uint16_t          g_bitfield_prev = 0;
 static uint16_t          g_seq           = 0;
 
+#define INPUT_SEND_INTERVAL_MS 50   /* 20 Hz = cada 50 ms */
+static uint32_t          g_last_send_ms = 0;
+
 static const char *bit_name(uint16_t bit)
 {
     switch (bit)
@@ -168,21 +171,27 @@ int input_poll(void)
         g_bitfield_prev = g_bitfield;
     }
 
-    /* Enviar estado actual cada frame (el satélite detecta bordes 0→1 y 1→0) */
+    /* Enviar estado a tasa fija de 20 Hz (redundancia contra pérdida de paquetes) */
     {
-        input_packet_t pkt;
-        uint8_t        buf[8];
+        uint32_t now = get_timestamp_ms();
 
-        pkt.bitfield   = g_bitfield;
-        pkt.timestamp  = get_timestamp_ms();
-        pkt.seq_number = g_seq;
+        if (now - g_last_send_ms >= INPUT_SEND_INTERVAL_MS)
+        {
+            input_packet_t pkt;
+            uint8_t        buf[8];
 
-        pack_input(&pkt, buf);
+            pkt.bitfield   = g_bitfield;
+            pkt.timestamp  = now;
+            pkt.seq_number = g_seq;
 
-        sendto(g_sock, (const char *)buf, sizeof(buf), 0,
-               (const struct sockaddr *)&g_dest, (socklen_t)sizeof(g_dest));
+            pack_input(&pkt, buf);
 
-        g_seq++;
+            sendto(g_sock, (const char *)buf, sizeof(buf), 0,
+                   (const struct sockaddr *)&g_dest, (socklen_t)sizeof(g_dest));
+
+            g_seq++;
+            g_last_send_ms = now;
+        }
     }
 
     return 0;

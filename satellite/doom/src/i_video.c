@@ -483,11 +483,19 @@ void I_GetEvent(void)
 
         while (uplink_pop_key(&ukey, (bool *)&upressed))
         {
-            uev.type  = upressed ? ev_keydown : ev_keyup;
-            uev.data1 = (int)ukey;
-            uev.data2 = upressed ? (int)ukey : 0;
-            uev.data3 = 0;
-            D_PostEvent(&uev);
+            fprintf(stderr, "[SAT/i_video] pop key ukey=0x%02x upressed=%d\n", ukey, upressed);
+            if (upressed)
+            {
+                uev.type  = ev_keydown;
+                uev.data1 = (int)ukey;
+                uev.data2 = (int)ukey;
+                uev.data3 = 0;
+                D_PostEvent(&uev);
+            }
+            else
+            {
+                /* Ignore keyup events coming from ground uplink */
+            }
         }
     }
 }
