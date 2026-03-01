@@ -1,6 +1,8 @@
 # BFG-I
 
-> Submission for the [Alén Space](https://alen.space/) challenge at [HackUDC 2026](https://hackudc.gpul.org/).
+> Winner of the [Alén Space](https://alen.space/) challenge at [HackUDC 2026](https://hackudc.gpul.org/).
+
+> 2nd Best Open Source Project at [HackUDC 2026](https://hackudc.gpul.org/).
 
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12063/badge)](https://www.bestpractices.dev/projects/12063)
 
