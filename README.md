@@ -1,5 +1,7 @@
 # BFG-I
 
+> Submission for the [Alén Space](https://alen.space/) challenge at [HackUDC 2026](https://hackudc.gpul.org/).
+
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12063/badge)](https://www.bestpractices.dev/projects/12063)
 
 Real-time streaming of a DOOM game session from a satellite to a ground station over UDP, with bidirectional input and H.264-compressed video.
@@ -384,4 +386,5 @@ This project was developed as part of [HackUDC 2026](https://hackudc.gpul.org/).
   - [DEPLOYMENT.md](docs/DEPLOYMENT.md) — Hardware deployment guide
   - [INTERFACES.md](docs/INTERFACES.md) — Module interface specifications
   - [COMPONENTS_LICENSE.md](docs/COMPONENTS_LICENSE.md) — License analysis and GPL v2 justification
+- **Monitoring:** See [`monitoring/`](monitoring/) for the real-time network traffic monitoring stack (Grafana + InfluxDB + Python). Refer to [monitoring/README.md](monitoring/README.md) for setup instructions.
 - **License:** GNU General Public License v2. See [satellite/doom/COPYING.md](satellite/doom/COPYING.md).
