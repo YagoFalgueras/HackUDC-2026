@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: 2026 BFG-I contributors (HackUDC 2026)
+# SPDX-License-Identifier: GPL-2.0-only
+
+name: CodeQL
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '30 1 * * 1'   # Every Monday at 01:30 UTC
+
+permissions: read-all
+
+jobs:
+  analyze:
+    name: Analyze (C)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          submodules: true
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libsdl2-dev \
+            libsdl2-mixer-dev \
+            libsdl2-net-dev \
+            libpng-dev \
+            libsamplerate0-dev \
+            libfluidsynth-dev \
+            libx264-dev \
+            libavcodec-dev \
+            libavutil-dev \
+            libswscale-dev
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@45580472a5bb82c4681c4ac726cfdb60060c2ee1 # v3
+        with:
+          languages: c-cpp
+
+      - name: Build doom (required for satellite linking)
+        working-directory: satellite/doom
+        run: ./autogen.sh && make -j4
+
+      - name: Build satellite and ground
+        run: make -j4
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@45580472a5bb82c4681c4ac726cfdb60060c2ee1 # v3
+        with:
+          category: /language:c-cpp

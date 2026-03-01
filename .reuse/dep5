@@ -118,6 +118,7 @@ Files: .devcontainer/.gitignore
        .github/workflows/cppcheck.yml
        .github/workflows/main.yml
        .github/workflows/project.yml
+       .github/workflows/codeql.yml
        .github/workflows/scorecard.yml
        .gitignore
        CHANGELOG.md
@@ -137,6 +138,17 @@ Files: .devcontainer/.gitignore
        scripts/cross_compile.sh
        scripts/deploy_satellite.sh
        scripts/run_local_test.sh
+Copyright: 2026 BFG-I contributors (HackUDC 2026)
+License: GPL-2.0-only
+
+# ---------------------------------------------------------------------------
+# Monitoring stack (Grafana + InfluxDB + Python monitoring scripts)
+# ---------------------------------------------------------------------------
+
+Files: monitoring/*
+       monitoring/grafana-provisioning/*
+       monitoring/grafana-provisioning/dashboards/*
+       monitoring/grafana-provisioning/datasources/*
 Copyright: 2026 BFG-I contributors (HackUDC 2026)
 License: GPL-2.0-only
 
