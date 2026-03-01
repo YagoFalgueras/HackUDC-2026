@@ -75,3 +75,84 @@ License: GPL-2.0-only
 Files: quickcheck/*
 Copyright: 2005-2025 Simon Howard and contributors
 License: GPL-2.0-only
+
+# ---------------------------------------------------------------------------
+# CMake Find modules
+# Upstream: https://github.com/chocolate-doom/chocolate-doom
+# ---------------------------------------------------------------------------
+
+Files: cmake/FindFluidSynth.cmake
+       cmake/FindSDL2.cmake
+       cmake/FindSDL2_mixer.cmake
+       cmake/FindSDL2_net.cmake
+       cmake/FindSampleRate.cmake
+       cmake/Findm.cmake
+Copyright: 2018 Alex Mayfield <alexcp2742@gmail.com>
+License: BSD-3-Clause
+
+# ---------------------------------------------------------------------------
+# Developer Certificate of Origin
+# Upstream: https://developercertificate.org/
+# ---------------------------------------------------------------------------
+
+Files: DCO
+Copyright: 2004, 2006 The Linux Foundation and its contributors
+License: GPL-2.0-only
+
+# ---------------------------------------------------------------------------
+# Project infrastructure and tooling (CI, devcontainer, configs, scripts)
+# ---------------------------------------------------------------------------
+
+Files: .devcontainer/.gitignore
+       .devcontainer/Dockerfile
+       .devcontainer/devcontainer.json
+       .devcontainer/initialize-linux.sh
+       .github/CONTRIBUTING.md
+       .github/ISSUE_TEMPLATE.md
+       .github/ISSUE_TEMPLATE/bug_report.yml
+       .github/ISSUE_TEMPLATE/config.yml
+       .github/ISSUE_TEMPLATE/feature_request.yml
+       .github/ISSUE_TEMPLATE/question.yml
+       .github/PULL_REQUEST_TEMPLATE.md
+       .github/workflows/cpp-linter.yml
+       .github/workflows/cppcheck.yml
+       .github/workflows/main.yml
+       .github/workflows/project.yml
+       .gitignore
+       CHANGELOG.md
+       CODE_OF_CONDUCT.md
+       GOVERNANCE.md
+       SECURITY.md
+       cmake/config.h.cin
+       configs/encoder_profiles/high_quality.conf
+       configs/encoder_profiles/low_bandwidth.conf
+       configs/encoder_profiles/ultrafast_qcif.conf
+       configs/ground.conf
+       configs/satellite.conf
+       docs/ARCHITECTURE_CHOICES.md
+       run.sh
+       scripts/benchmark.sh
+       scripts/cross_compile.sh
+       scripts/deploy_satellite.sh
+       scripts/run_local_test.sh
+Copyright: 2026 BFG-I contributors (HackUDC 2026)
+License: GPL-2.0-only
+
+# ---------------------------------------------------------------------------
+# Compiled binaries (derived from BFG-I source)
+# ---------------------------------------------------------------------------
+
+Files: doom-ground
+       doom-satellite
+       ground_main
+Copyright: 2026 BFG-I contributors (HackUDC 2026)
+License: GPL-2.0-only
+
+# ---------------------------------------------------------------------------
+# FreeDoom game data
+# Upstream: https://freedoom.github.io/
+# ---------------------------------------------------------------------------
+
+Files: freedoom1.wad
+Copyright: 2001-2023 Contributors to the Freedoom project
+License: BSD-3-Clause
