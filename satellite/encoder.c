@@ -104,8 +104,8 @@ static void rgb_to_yuv420p(const uint8_t *rgb, x264_picture_t *pic, int width, i
 }
 
 int encoder_init(void) {
-    // Configurar parámetros por defecto para preset ultrafast
-    if (x264_param_default_preset(&ctx.param, "ultrafast", "zerolatency") < 0) {
+    // Configurar parámetros por defecto para preset fast
+    if (x264_param_default_preset(&ctx.param, "fast", "zerolatency") < 0) {
         fprintf(stderr, "Error: Failed to set x264 preset\n");
         return -1;
     }
@@ -115,7 +115,9 @@ int encoder_init(void) {
     ctx.param.i_height = FRAME_HEIGHT;
 
     // Configuración de bitrate
-    ctx.param.rc.i_bitrate = 192;  // 192 kbps (rango 128-256 kbps según spec)
+    ctx.param.rc.i_bitrate = 256;  // 256 kbps (rango 128-256 kbps según spec)
+    ctx.param.rc.i_aq_mode = 1;
+    ctx.param.rc.f_aq_strength = 1.0;
     ctx.param.rc.i_rc_method = X264_RC_ABR;  // Average Bitrate
 
     // Profile baseline: sin B-frames, mínima latencia

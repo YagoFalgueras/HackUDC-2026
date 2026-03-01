@@ -49,6 +49,7 @@ SDL2:
 
 ### License and copyright (FSF/REUSE compliance)
 
+<!-- REUSE-IgnoreStart -->
 - [ ] Every new source file begins with the SPDX header:
       `// SPDX-FileCopyrightText: <year> <name>`
       `// SPDX-License-Identifier: GPL-2.0-only`
@@ -56,6 +57,7 @@ SDL2:
       GPL-2.0-only. (See [docs/COMPONENTS_LICENSE.md](../docs/COMPONENTS_LICENSE.md)
       for the compatibility analysis.)
 - [ ] If a new dependency was added, `.reuse/dep5` has been updated accordingly.
+<!-- REUSE-IgnoreEnd -->
 
 ### Developer Certificate of Origin
 

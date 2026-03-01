@@ -58,10 +58,14 @@ GTAGS
 /HTML/
 
 # VSCode settings
-
 /.vscode/
 
 # clangd settings
 /.cache/clangd
 compile_commands.json
+
+# Compiled binaries (built from source, not stored in repo)
+/doom-ground
+/doom-satellite
+/ground_main
 

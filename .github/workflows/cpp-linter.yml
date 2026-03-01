@@ -9,20 +9,26 @@ on:
     branches:
       - main
 
+permissions: read-all
+
 jobs:
   cpp-linter:
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
     strategy:
       matrix:
         compiler: [clang]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install libfluidsynth-dev libpng-dev libsamplerate0-dev libsdl2-dev libsdl2-mixer-dev libsdl2-net-dev bear
       - name: Generate compilation database
         working-directory: satellite/doom
         run: ./autogen.sh && bear -- make -j4
-      - uses: cpp-linter/cpp-linter-action@v2
+      - uses: cpp-linter/cpp-linter-action@b6edc0625e3941baa1797f4b4326adeab6890c97 # v2
         id: linter
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
