@@ -91,9 +91,6 @@ install_deps() {
 
     activate_venv
 
-    print_info "Upgrading pip..."
-    pip install --upgrade pip
-
     print_info "Installing dependencies from requirements.txt..."
     pip install -r requirements.txt
 

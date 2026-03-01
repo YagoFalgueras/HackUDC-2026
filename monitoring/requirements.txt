@@ -2,13 +2,20 @@
 # Python 3.8+ required
 
 # InfluxDB client for metrics storage
-influxdb==5.3.1
+influxdb==5.3.1 \
+    --hash=sha256:46f85e7b04ee4b3dee894672be6a295c94709003a7ddea8820deec2ac4d8b27a \
+    --hash=sha256:65040a1f53d1a2a4f88a677e89e3a98189a7d30cf2ab61c318aaa89733280747
 
 # Network packet capture and analysis
-scapy==2.5.0
+scapy==2.5.0 \
+    --hash=sha256:5b260c2b754fd8d409ba83ee7aee294ecdbb2c235f9f78fe90bc11cb6e5debc2
 
 # System and process utilities
-psutil==5.9.8
+psutil==5.9.8 \
+    --hash=sha256:6be126e3225486dff286a8fb9a06246a5253f4c7c53b475ea5f5ac934e64194c \
+    --hash=sha256:d06016f7f8625a1825ba3732081d77c94589dca78b7a3fc072194851e88461a4
 
 # Additional utilities
-python-dateutil==2.8.2
+python-dateutil==2.8.2 \
+    --hash=sha256:961d03dc3453ebbc59dbdea9e4e11c5651520a876d0f4db161e8674aae935da9 \
+    --hash=sha256:0123cacc1627ae19ddf3c27a5de5bd67ee4586fbdd6440d9748f8abb483d3e86

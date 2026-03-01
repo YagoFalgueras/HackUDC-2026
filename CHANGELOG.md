@@ -72,5 +72,4 @@ Initial release developed at HackUDC 2026.
 - Compilation errors in `satellite/doom/src/i_video.c` after the ring buffer
   replaced the direct UDP send path.
 
-[Unreleased]: https://github.com/hackudc/BFG-I/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/hackudc/BFG-I/releases/tag/v0.1.0
+[Unreleased]: https://github.com/YagoFalgueras/HackUDC-2026/commits/main

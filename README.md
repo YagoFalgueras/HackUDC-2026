@@ -252,8 +252,8 @@ Both binaries accept positional CLI arguments. All parameters have defaults for 
 |-----------|-------|-------|
 | Resolution | 176×144 (QCIF) | Downsampled from DOOM's native 320×200 |
 | Frame rate | 20 FPS | Encoder thread sleep: 50 ms |
-| Bitrate | ~192 kbps | Configurable in encoder_init() |
-| x264 preset | `ultrafast` | Minimum CPU, minimum latency |
+| Bitrate | ~256 kbps | Configurable in encoder_init() |
+| x264 preset | `fast` | Minimum CPU, minimum latency |
 | x264 tune | `zerolatency` | No lookahead, no frame buffering |
 | H.264 profile | `baseline` | No B-frames |
 | Keyframe interval | 60 frames | ≈3 s at 20 FPS; allows stream recovery |
