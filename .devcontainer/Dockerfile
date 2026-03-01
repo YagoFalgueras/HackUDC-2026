@@ -1,4 +1,4 @@
-FROM ubuntu
+FROM ubuntu:24.04
 
 ######### Apt dependencies
 
@@ -10,7 +10,7 @@ RUN apt-get update && \
 
 ########## Install Pillow (PIL) via pip, not apt
 
-ARG choco_pip_dependencies="pillow"
+ARG choco_pip_dependencies="pillow==11.1.0"
 RUN pip install $choco_pip_dependencies
 
 ########## Container user setup

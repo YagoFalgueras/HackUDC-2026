@@ -118,6 +118,7 @@ Files: .devcontainer/.gitignore
        .github/workflows/cppcheck.yml
        .github/workflows/main.yml
        .github/workflows/project.yml
+       .github/workflows/scorecard.yml
        .gitignore
        CHANGELOG.md
        CODE_OF_CONDUCT.md
@@ -130,21 +131,12 @@ Files: .devcontainer/.gitignore
        configs/ground.conf
        configs/satellite.conf
        docs/ARCHITECTURE_CHOICES.md
+       docs/CROSS_COMPILE_AARCH64.md
        run.sh
        scripts/benchmark.sh
        scripts/cross_compile.sh
        scripts/deploy_satellite.sh
        scripts/run_local_test.sh
-Copyright: 2026 BFG-I contributors (HackUDC 2026)
-License: GPL-2.0-only
-
-# ---------------------------------------------------------------------------
-# Compiled binaries (derived from BFG-I source)
-# ---------------------------------------------------------------------------
-
-Files: doom-ground
-       doom-satellite
-       ground_main
 Copyright: 2026 BFG-I contributors (HackUDC 2026)
 License: GPL-2.0-only
 

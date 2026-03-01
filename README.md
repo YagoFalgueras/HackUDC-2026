@@ -1,5 +1,7 @@
 # BFG-I
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/12063/badge)](https://www.bestpractices.dev/projects/12063)
+
 Real-time streaming of a DOOM game session from a satellite to a ground station over UDP, with bidirectional input and H.264-compressed video.
 
 ```
