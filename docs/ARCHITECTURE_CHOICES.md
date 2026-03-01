@@ -175,6 +175,16 @@ typedef struct {
 - 8 bytes fijos permiten parsing ultra-rápido sin heap allocation
 - Big-endian serialization para compatibilidad cross-platform
 
-## Microoptimizaciones
+## Microoptimizaciones implementadas
+
+Se ha experimentado con la configuración de x264, concretamente: con el bitrate, con las opciones preset y otras opciones de configuración. Las que mejor rendimiento nos han dado han sido las de encoder.c
+
+## Microoptimizaciones posibles (trabajo futuro)
+
+Los 4 bytes de SSR de la cabecera RTP actualmente están hardcoadeado y sin uso. Esto nos permitiría ganar 4 bytes por paquete para contenido útil o reducir el tamaño en 4 bytes.
+
+La parte inferior de la pantalla de DOOM no cambia tanto, podría tratarse a parte e implementar delta XOR + RLS con keyframes.
 
 ## Resultados y conclusiones finales
+
+Como nuestro marine, este reto ha sido una ardua batalla contra el ancho de banda y el propio código de DOOM, el cual hemos tenimos que modificar más de lo que nos habría gustado para poder trabajar con hilos. La decisión de los hilos ha sido motivada por un simple hecho: los hilos colaboran mientras que los procesos compiten. Sin embargo, el overhead de trabajar con ellos ha hecho que no podamos dedicar más tiempo a implementar las microoptimizaciones posibles. Aunque hemos cumplido el requisito de uplink, el downlink trabaja a unos 240 kbps lo cual está por encima de nuestro supuesto inicial de 64 kbps.
