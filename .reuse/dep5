@@ -107,7 +107,6 @@ Files: .devcontainer/.gitignore
        .devcontainer/Dockerfile
        .devcontainer/devcontainer.json
        .devcontainer/initialize-linux.sh
-       .github/CONTRIBUTING.md
        .github/ISSUE_TEMPLATE.md
        .github/ISSUE_TEMPLATE/bug_report.yml
        .github/ISSUE_TEMPLATE/config.yml
