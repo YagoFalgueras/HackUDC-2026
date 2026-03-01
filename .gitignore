@@ -69,3 +69,5 @@ compile_commands.json
 /doom-satellite
 /ground_main
 
+# Ignore presentation files
+/presentaciones
