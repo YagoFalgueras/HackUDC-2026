@@ -91,15 +91,16 @@ def packet_callback(packet):
     ip_layer = packet[IP]
 
     # Total packet size (Ethernet frame size if available, else IP packet size)
-    packet_size = len(packet)
+    packet_size = len(udp_layer.payload)  # Solo cuenta el payload UDP
 
     # Classify by direction:
     # - Uplink (Input): packets TO port 5000 (ground -> satellite)
-    # - Downlink (Video): packets FROM port 5001 (satellite -> ground)
+    # - Downlink (Video): packets TO port 5001 (satellite -> ground)
+    # NOTE: Metrics are inverted because we capture on the receiving side
     if udp_layer.dport == UPLINK_PORT:
-        stats.add_uplink(packet_size)
-    elif udp_layer.sport == DOWNLINK_PORT:
-        stats.add_downlink(packet_size)
+        stats.add_downlink(packet_size)  # Inverted: receiving on 5000 means ground->sat (downlink from sat perspective)
+    elif udp_layer.dport == DOWNLINK_PORT:
+        stats.add_uplink(packet_size)    # Inverted: receiving on 5001 means sat->ground (uplink from ground perspective)
 
 def capture_traffic(interface):
     """Capture packets on specified interface"""
