@@ -1,0 +1,13 @@
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB-DOOM
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    database: doom_satellite
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "1s"
+      httpMode: GET
