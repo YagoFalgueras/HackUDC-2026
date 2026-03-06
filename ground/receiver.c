@@ -29,7 +29,7 @@
 
 #define UDP_BUF_SIZE   25344
 
-/* ---------- RTP header (12 bytes fijos, RFC 3550) ---------- */
+/* ---------- RTP header (8 bytes, sin SSRC) ---------- */
 
 typedef struct {
     uint8_t  version;
@@ -40,7 +40,6 @@ typedef struct {
     uint8_t  payload_type;
     uint16_t seq;
     uint32_t timestamp;
-    uint32_t ssrc;
 } rtp_header_t;
 
 /* ---------- estado del módulo ---------- */
@@ -70,7 +69,7 @@ static _Atomic uint64_t g_bytes_received = 0;
 
 static int unpack_rtp_header(const uint8_t *buf, int len, rtp_header_t *hdr)
 {
-    if (len < 12)
+    if (len < 8)
         return -1;
 
     hdr->version      = (buf[0] >> 6) & 0x03;
@@ -82,10 +81,8 @@ static int unpack_rtp_header(const uint8_t *buf, int len, rtp_header_t *hdr)
     hdr->seq          = (uint16_t)(buf[2] << 8) | buf[3];
     hdr->timestamp    = (uint32_t)(buf[4] << 24) | (buf[5] << 16) |
                         (buf[6] << 8)  | buf[7];
-    hdr->ssrc         = (uint32_t)(buf[8] << 24) | (buf[9] << 16) |
-                        (buf[10] << 8) | buf[11];
 
-    int payload_off = 12 + hdr->cc * 4;
+    int payload_off = 8 + hdr->cc * 4;
 
     if (hdr->extension)
     {

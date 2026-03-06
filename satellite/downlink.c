@@ -26,8 +26,8 @@
 
 #define DEFAULT_DEST_IP   "127.0.0.1"
 #define DEFAULT_DEST_PORT 9666
-#define MAX_PAYLOAD_SIZE  1460  // MTU 1500 - IP 20 - UDP 8 - RTP 12 = 1460 bytes payload
-#define RTP_HEADER_SIZE   12
+#define MAX_PAYLOAD_SIZE  1464  // MTU 1500 - IP 20 - UDP 8 - RTP 8 = 1464 bytes payload
+#define RTP_HEADER_SIZE   8
 #define RTP_VERSION       2
 #define RTP_PAYLOAD_TYPE  96    // Payload type para datos custom (96-127 son dinámicos)
 
@@ -35,14 +35,13 @@
 static int udp_socket = -1;
 static struct sockaddr_in udp_dest;
 static uint16_t rtp_seq_number = 0;
-static uint32_t rtp_ssrc = 0x12345678;  // Source identifier (puede ser random)
 
 // Contador de bytes transmitidos (thread-safe)
 static _Atomic uint64_t g_bytes_sent = 0;
 
 /**
- * pack_rtp_header - Construye un header RTP de 12 bytes
- * @buf: Buffer de salida (mínimo 12 bytes)
+ * pack_rtp_header - Construye un header RTP de 8 bytes (sin SSRC)
+ * @buf: Buffer de salida (mínimo 8 bytes)
  * @seq: Número de secuencia
  * @timestamp: Timestamp del frame
  * @marker: Bit marker (1 si es último fragmento del frame)
@@ -64,12 +63,6 @@ static void pack_rtp_header(uint8_t *buf, uint16_t seq, uint32_t timestamp, uint
     buf[5] = (timestamp >> 16) & 0xFF;
     buf[6] = (timestamp >> 8) & 0xFF;
     buf[7] = timestamp & 0xFF;
-
-    // Bytes 8-11: SSRC (big-endian)
-    buf[8] = (rtp_ssrc >> 24) & 0xFF;
-    buf[9] = (rtp_ssrc >> 16) & 0xFF;
-    buf[10] = (rtp_ssrc >> 8) & 0xFF;
-    buf[11] = rtp_ssrc & 0xFF;
 }
 
 int downlink_init(const char *dest_ip, uint16_t dest_port)
